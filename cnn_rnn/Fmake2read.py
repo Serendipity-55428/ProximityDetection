@@ -22,6 +22,11 @@ import xlrd
 
 
 def Excel2Numpy(p):
+    '''
+    将表格文件改成ndarray类型矩阵
+    :param p: 文件路径
+    :return: ndarray类型矩阵
+    '''
     np.set_printoptions(suppress=True)
     data = xlrd.open_workbook(p)
     table = data.sheets()[0]
@@ -41,7 +46,7 @@ class FileoOperation:
     '''存取TFRecord文件及相关操作封装,输入属性为p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,
                  batch_size, capacity, batch_fun, batch_step, min_after_dequeue(choice)'''
 
-    #p_in为读入文件名， filename为转化为TFRecord文件名或格式化文件名（若存储多个文件）
+    #p_in为
     #read_in_fun为处理使得p_in路径文件为python可操作文件的转换函数,返回处理好的数据
     ##将海量数据写入不同的TFRecord文件,num_shards定义了总共写入多少个TFRecord文件，
     #instances_per_shard定义了每个TFRecord文件中有多少个数据。
@@ -65,6 +70,23 @@ class FileoOperation:
 
     def __init__(self, p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,
                  batch_size, capacity, batch_fun, batch_step, min_after_dequeue = 0):
+        '''
+        :param p_in: 读入文件名
+        :param filename: 转化为TFRecord文件名或格式化文件名（若存储多个文件）
+        :param read_in_fun: 处理使得p_in路径文件为python可操作文件的转换函数,返回处理好的数据
+        :param num_shards: 总共写入多少个TFRecord文件
+        :param instance_per_shard: 每个TFRecord文件中有多少个数据
+        :param ftype: 特征转换为TFRecord文件前的原始数据类型
+        :param ttype: 标签转换为TFRecord文件前的原始数据类型
+        :param fshape: 转换为TFRecord文件前的原始的单个特征形状
+        :param tshape: 转换为TFRecord文件前的原始的单个标签形状
+        :param batch_size: 处理后的样本特征向量和标签数据整理成神经网络训练时需要的batch
+        :param capacity: tf.train.shuffle_batch函数所需参数
+        :param batch_fun: 待选择的出队数据组合函数，选择在数据出队前是否需要打乱
+        :param batch_step: tf.train.shuffle_batch或tf.train.batch函数循环输出batch组合的次数
+        :param min_after_dequeue: 出队时队列中元素的最少个数,当出队函数被调用但是队列中元素不够时，出队操作将等待更多的元素入队才会完成且
+        Minimum number elements in the queue after a dequeue, used to ensure a level of mixing of elements.
+        '''
         self.__p_in = p_in
         #转换为TFRecord文件所需属性
         self.__filename = filename
@@ -108,8 +130,12 @@ class FileoOperation:
             writer.close()
 
     def ParseDequeue(self, files):
-        '''解析所有TFRecord文件并按照自行选择的方式处理并出队
-        参数files为tf.train.match_filenames_once函数中参数pattern：匹配各个文件前部分的正则表达式'''
+        '''
+        解析所有TFRecord文件并按照自行选择的方式处理并出队
+        参数files为tf.train.match_filenames_once函数中参数pattern：匹配各个文件前部分的正则表达式
+        :param files: 正则表达式，所有分文件的文件名前面相同部分
+        :return: 一个batch的特征矩阵和标签向量
+        '''
         files = tf.train.match_filenames_once(files)
 
         # Note: if num_epochs is not None, this function creates local counter epochs.
@@ -156,8 +182,11 @@ class FileoOperation:
         return feature_batch, target_batch
 
     def testfun(self, files):
-        '''用于对解析后的数据进行测试
-        files为ParseDequeue函数所需参数'''
+        '''
+        用于对解析后的数据进行测试
+        :param files: ParseDequeue函数所需参数
+        :return: 多线程生成特征矩阵和标签向量
+        '''
         feature_batch, target_batch = self.ParseDequeue(files)
         with tf.Session() as sess:
             # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
