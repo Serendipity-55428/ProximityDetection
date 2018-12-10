@@ -12,7 +12,8 @@
 
 import tensorflow as tf
 import numpy as np
-from HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
+from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
+from cnn_rnn.Fmake2read import FileoOperation
 import time
 
 def variable_summaries(var, name):
@@ -117,6 +118,7 @@ def stacking_main():
     :param files: ParseDequeue函数所需参数
     :return: 多线程生成特征矩阵和标签向量
     '''
+    FileoOperation
 
     feature_batch, target_batch = self.ParseDequeue(files)
     with tf.Session() as sess:

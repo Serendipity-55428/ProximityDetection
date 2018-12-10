@@ -12,7 +12,7 @@
 
 import tensorflow as tf
 import numpy as np
-from HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
+from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 import time
 
 def variable_summaries(var, name):
