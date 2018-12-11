@@ -34,7 +34,7 @@ class RecurrentNeuralNetwork:
     def dynamic_rnn(cls, cells, inputs, max_time):
         '''
         :param cells: 读入结点
-        :param inputs: 读入ndarray, shape= [batch_size, max_time, depth]
+        :param inputs: 读入'ndarray' / 'Tensor', shape= [batch_size, max_time, depth]
         :param max_time: 循环网络中循环次数
         :return: max_time个隐藏层h,c,最终的输出h,c
         '''
@@ -63,14 +63,18 @@ class RecurrentNeuralNetwork:
         :param max_time: 最大循环次数
         :return: Variable, x.shape= [x.shape[0], max_time, x.shape[-1]/max_time]
         '''
+        shape = x.shape
         batch_size = x.shape[0]
         depth = int(x.shape[-1] / max_time)
-        return tf.Variable(x.reshape(batch_size, max_time, depth), dtype= tf.float32), x.shape
+        x_Tensor = tf.Variable(x.reshape(batch_size, max_time, depth)) if type(x) == np.ndarray \
+            else tf.reshape(x, shape= [batch_size, max_time, depth])
+
+        return x_Tensor, shape
 
     def __init__(self, x, keep_prob):
         '''
         构造函数
-        :param x: 一个批次样本特征向量集，shape= [batch_size, depth]，type= 'ndarray'
+        :param x: 一个批次样本特征向量集，shape= [batch_size, depth]，type= 'ndarray' / 'Tensor'
         :param keep_prob: dropout技术中所需参数
         '''
         self.__x = x
@@ -214,7 +218,7 @@ class CNN:
         '''
         #Tensor无法被做任何改变，需要先转换为Variable类型
         x = tf.Variable(x)
-        x = tf.reshape(x, [x.get_shape().as_list()[0], den_2, den_3])
+        x = tf.reshape(x, [x.get_shape().as_list()[0], den_2, den_3, 1])
         return x
 
 
