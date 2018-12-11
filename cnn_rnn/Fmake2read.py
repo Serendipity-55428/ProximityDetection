@@ -75,7 +75,7 @@ class FileoOperation:
         :param batch_size: 处理后的样本特征向量和标签数据整理成神经网络训练时需要的batch
         :param capacity: tf.train.shuffle_batch函数所需参数
         :param batch_fun: 待选择的出队数据组合函数，选择在数据出队前是否需要打乱
-        :param batch_step: tf.train.shuffle_batch或tf.train.batch函数循环输出batch组合的次数
+        :param batch_step: tf.train.shuffle_batch或tf.train.batch函数循环输出batch组合的次数(不一定要输出所有批次，用户可以自行限制最大输出批次数量)
         :param min_after_dequeue: 出队时队列中元素的最少个数,当出队函数被调用但是队列中元素不够时，出队操作将等待更多的元素入队才会完成且
         Minimum number elements in the queue after a dequeue, used to ensure a level of mixing of elements.
         '''
@@ -175,13 +175,14 @@ class FileoOperation:
 
         return feature_batch, target_batch
 
-    def testfun(self, files):
+    def testfun(self, files, num_epochs):
         '''
         用于对解析后的数据进行测试
         :param files: ParseDequeue函数所需参数
+        :param num_epochs: ParseDequeue函数所需参数
         :return: 多线程生成特征矩阵和标签向量
         '''
-        feature_batch, target_batch = self.ParseDequeue(files)
+        feature_batch, target_batch = self.ParseDequeue(files, num_epochs= num_epochs)
         with tf.Session() as sess:
             # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
             sess.run(tf.local_variables_initializer())
