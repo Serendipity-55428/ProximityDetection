@@ -133,6 +133,7 @@ def stacking_main():
     tr_batch_fun = None
     tr_batch_step = None
     tr_files = None
+    tr_num_epochs = None
 
     #测试集数据所需参数
     te_p_in = None
@@ -149,18 +150,19 @@ def stacking_main():
     te_batch_fun = None
     te_batch_step = None
     te_files = None
+    te_num_epochs = None
 
     #定义读取训练集数据对象
     train_fileoperation = FileoOperation(tr_p_in, tr_filename, tr_read_in_fun, tr_num_shards, tr_instance_per_shard,
                                          tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity, tr_batch_fun, tr_batch_step)
 
-    train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
+    train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files, num_epochs= tr_num_epochs)
 
     #定义读取测试集数据对象
     test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
                                         te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity, te_batch_fun, te_batch_step)
 
-    test_feature_batch, test_feature_batch = test_fileoperation.ParseDequeue(te_files)
+    test_feature_batch, test_feature_batch = test_fileoperation.ParseDequeue(te_files, num_epochs= te_num_epochs)
 
     with tf.Session() as sess:
         # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
@@ -170,7 +172,7 @@ def stacking_main():
         # 线程调配管理器
         coord = tf.train.Coordinator()
         # Starts all queue runners collected in the graph.
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        threads = tf.train.start_queue_runners(sess= sess, coord= coord)
 
         # 获取并打印组合之后的样例
         # 由于tf.train。match_filenames_once函数机制:

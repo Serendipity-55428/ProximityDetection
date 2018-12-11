@@ -121,18 +121,20 @@ class FileoOperation:
                 writer.write(example.SerializeToString())
             writer.close()
 
-    def ParseDequeue(self, files):
+    def ParseDequeue(self, files, num_epochs):
         '''
         解析所有TFRecord文件并按照自行选择的方式处理并出队
         参数files为tf.train.match_filenames_once函数中参数pattern：匹配各个文件前部分的正则表达式
         :param files: 正则表达式，所有分文件的文件名前面相同部分
+        :param num_epochs: 当一个输入队列中的所有文件都被处理完后，会将初始化时提供的文件列表中的文件全部冲新加入队列。
+                           num_epochs用于限制加载初始文件列表的最大轮数
         :return: 一个batch的特征矩阵和标签向量
         '''
         files = tf.train.match_filenames_once(files)
 
         # Note: if num_epochs is not None, this function creates local counter epochs.
         # Use local_variables_initializer() to initialize local variables.
-        filename_queue = tf.train.string_input_producer(files, shuffle=False)
+        filename_queue = tf.train.string_input_producer(files, shuffle=False, num_epochs= num_epochs)
 
         # 创建一个reader来读取TFRecord文件中的样例
         reader = tf.TFRecordReader()
