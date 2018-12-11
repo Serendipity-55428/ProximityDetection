@@ -46,26 +46,18 @@ class FileoOperation:
     '''存取TFRecord文件及相关操作封装,输入属性为p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,
                  batch_size, capacity, batch_fun, batch_step, min_after_dequeue(choice)'''
 
-    #p_in为
-    #read_in_fun为处理使得p_in路径文件为python可操作文件的转换函数,返回处理好的数据
-    ##将海量数据写入不同的TFRecord文件,num_shards定义了总共写入多少个TFRecord文件，
-    #instances_per_shard定义了每个TFRecord文件中有多少个数据。
-    #ftype, ttype分别为特征和标签转换为TFRecord文件前的原始数据类型
-    #fshape, tshape分别为转换为TFRecord文件前的原始单个特征和的单个标签形状
-    #batch_size为处理后的样本特征向量和标签数据整理成神经网络训练时需要的batch
-    #capacity为定义一个batch中样例的个数
-    #min_after_dequeue为出队时队列中元素的最少个数,当出队函数被调用但是队列中元素不够时，出队操作将等待更多的元素入队才会完成且
-    #Minimum number elements in the queue after a dequeue, used to ensure a level of mixing of elements.
-    #batch_fun为待选择的出队数据组合函数，选择在数据出队前是否需要打乱
-    #batch_step为tf.train.shuffle_batch或tf.train.batch函数循环输出batch组合的次数
     __slots__ = ('__p_in', '__filename', '__read_in_fun', '__num_shards',
                  '__instances_per_shard', '__features', '__targets', '__ftype', '__ttype',
                  '__fshape', '__tshape', '__batch_size', '__capacity', '__min_after_dequeue',
                  '__batch_fun', '__batch_step')
 
     @staticmethod
-    # 用于将数据存储为TFRecord文件时的数据类型格式转换，生成字符串型的属性
     def bytes_feature(values):
+        '''
+        将数据存储为TFRecord文件时的数据类型格式转换，生成字符串的属性
+        :param values: 待转换的原始类型数据
+        :return: values转换后的字符串类型数据
+        '''
         return tf.train.Feature(bytes_list=tf.train.BytesList(value=[values]))
 
     def __init__(self, p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,

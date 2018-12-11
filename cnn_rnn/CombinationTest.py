@@ -118,26 +118,50 @@ def stacking_main():
     :param files: ParseDequeue函数所需参数
     :return: 多线程生成特征矩阵和标签向量
     '''
-    p_in = None
-    filename = None
-    read_in_fun = None
-    num_shards = None
-    instance_per_shard = None
-    ftype = None
-    ttype = None
-    fshape = None
-    tshape = None
-    batch_size = None
-    capacity = None
-    batch_fun = None
-    batch_step = None
-    files = None
+    #训练集数据所需参数
+    tr_p_in = None
+    tr_filename = None
+    tr_read_in_fun = None
+    tr_num_shards = None
+    tr_instance_per_shard = None
+    tr_ftype = None
+    tr_ttype = None
+    tr_fshape = None
+    tr_tshape = None
+    tr_batch_size = None
+    tr_capacity = None
+    tr_batch_fun = None
+    tr_batch_step = None
+    tr_files = None
 
-    #定义读取数据类对象
-    fileoperation = FileoOperation(p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,
-                 batch_size, capacity, batch_fun, batch_step)
+    #测试集数据所需参数
+    te_p_in = None
+    te_filename = None
+    te_read_in_fun = None
+    te_num_shards = None
+    te_instance_per_shard = None
+    te_ftype = None
+    te_ttype = None
+    te_fshape = None
+    te_tshape = None
+    te_batch_size = None
+    te_capacity = None
+    te_batch_fun = None
+    te_batch_step = None
+    te_files = None
 
-    feature_batch, target_batch = fileoperation.ParseDequeue(files)
+    #定义读取训练集数据对象
+    train_fileoperation = FileoOperation(tr_p_in, tr_filename, tr_read_in_fun, tr_num_shards, tr_instance_per_shard,
+                                         tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity, tr_batch_fun, tr_batch_step)
+
+    train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
+
+    #定义读取测试集数据对象
+    test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
+                                        te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity, te_batch_fun, te_batch_step)
+
+    test_feature_batch, test_feature_batch = test_fileoperation.ParseDequeue(te_files)
+
     with tf.Session() as sess:
         # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
         sess.run(tf.local_variables_initializer())
@@ -156,10 +180,10 @@ def stacking_main():
         # will catch this exception, however, if this operation is used
         # in your main thread you are responsible for catching this yourself.
         # 故需要在循环读取时及时捕捉异常
-        train_steps = batch_step
+        train_steps = tr_batch_step
         try:
             while not coord.should_stop():  # 如果线程应该停止则返回True
-                cur_feature_batch, cur_target_batch = sess.run([feature_batch, target_batch])
+                cur_feature_batch, cur_target_batch = sess.run([train_feature_batch, train_target_batch])
                 print(cur_feature_batch, cur_target_batch)
 
                 train_steps -= 1
