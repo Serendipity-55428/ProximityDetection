@@ -62,10 +62,10 @@ outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, \
 # loss = tf.reduce_mean(tf.square(output_2 - y))
 # opt = tf.train.AdamOptimizer(learning_rate= 1e-4).minimize(loss)
 if __name__ == '__main__':
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        out, state_h = sess.run([output_m, state_m], feed_dict= {x: np.arange(80, dtype= np.float32).reshape(4, 20)})
-        print(out.shape, state_h[-1].shape)
+    # with tf.Session() as sess:
+    #     sess.run(tf.global_variables_initializer())
+    #     out, state_h = sess.run([output_m, state_m], feed_dict= {x: np.arange(80, dtype= np.float32).reshape(4, 20)})
+    #     print(out.shape, state_h[-1].shape)
         # outputs_put, outstate_put = sess.run([output, state], feed_dict= {x: np.arange(80, dtype= np.float32).reshape(4, 20)})
         # print(outputs_put.shape, outstate_put.shape)
         # print(outstate_put[0].h.shape, outstate_put[0].h.shape)
@@ -73,6 +73,8 @@ if __name__ == '__main__':
         #     _, loss_s = sess.run([opt, loss], feed_dict= {x: np.arange(80, dtype= np.float32).reshape(4, 20),
         #                                                   y: np.arange(4, dtype= np.float32)})
         #     print(loss_s)
+    d = np.array(None)
+    print(d, type(d))
 
 
 

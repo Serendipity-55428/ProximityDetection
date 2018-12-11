@@ -90,7 +90,7 @@ def stacking_main():
     test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
                                         te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity, te_batch_fun, te_batch_step)
 
-    test_feature_batch, test_feature_batch = test_fileoperation.ParseDequeue(te_files, num_epochs= te_num_epochs)
+    test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files, num_epochs= te_num_epochs)
 
     #训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
     x = tf.placeholder(dtype= tf.float32, shape= [tr_batch_size, tr_fshape])
@@ -114,9 +114,9 @@ def stacking_main():
     #将每个样本特征向量由一维转化为二维shape= [batch_size, h, v, 1],原始数据有24个特征，转化为4*6维'picture'特征输入卷积神经网络
     x = cnn.d_one2d_two(x, 4, 6)
     #输出单个值的Variable
-    out = stacking_CNN(x= x, arg_dict= cnn_weights, keep_prob= 1.0)
+    cnn_ops = stacking_CNN(x= x, arg_dict= cnn_weights, keep_prob= 1.0)
     #定义CNN自学习器的损失函数和优化器
-    cnn_optimize, cnn_loss = sub_LossOptimize(out, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
+    cnn_optimize, cnn_loss = sub_LossOptimize(cnn_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
 
     ##############################RNN##############################
     #定义GRU子学习器中全连接层参数矩阵以及偏置量尺寸
@@ -127,9 +127,9 @@ def stacking_main():
         'b_2': tf.Variable(tf.truncated_normal([64], mean= 0, stddev= 1.0), dtype= tf.float32)
     }
     #定义多层GRU的最终输出ops
-    net_2 = stacking_GRU(x= x, num_units= 256, arg_dict= gru_weights)
+    gru_ops = stacking_GRU(x= x, num_units= 256, arg_dict= gru_weights)
     #定义GRU自学习器的损失函数和优化器
-    gru_optimize, gru_loss = sub_LossOptimize(net_2, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
+    gru_optimize, gru_loss = sub_LossOptimize(gru_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
 
     #############################FC###############################
     #定义fc次级学习器中全连接层参数、
@@ -143,10 +143,11 @@ def stacking_main():
     }
 
     #定义FC次级学习器的最终输出ops
-    net_3 = stacking_FC(x= x, arg_dict= fc_weights)
+    fc_ops = stacking_FC(x= x, arg_dict= fc_weights)
     #定义次级学习器的损失函数和优化器
-    fc_optimize, fc_loss = sub_LossOptimize(net_3, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
+    fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
 
+    #############################Session###########################
     with tf.Session() as sess:
         # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
         sess.run(tf.local_variables_initializer())
@@ -157,15 +158,33 @@ def stacking_main():
         # Starts all queue runners collected in the graph.
         threads = tf.train.start_queue_runners(sess= sess, coord= coord)
 
-        train_steps = tr_batch_step #对于stacking策略，使用5折交叉验证，该参数设置为: 5折 * 5组 = 25
+        train_steps = tr_batch_step #对于stacking策略，使用5折交叉验证，该参数设置为24（计数从0开始）: 5折 * 5组 = 25
+        #定义次级学习器训练集批次特征矩阵和测试集批次特征矩阵（起始为空，在每次输出一个对应批次数据后连接到该次级训练集中）
+        super_training_set = np.array(None)
+        super_testing_set = np.array(None)
         #训练100000个epoch
         for epoch in range(100000):
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True
                     tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
                     # print(cur_feature_batch, cur_target_batch)
+                    if not train_steps % 5:
+                        _, loss_cnn = sess.run([cnn_optimize, cnn_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
+                        print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
+                        _, loss_gru = sess.run([gru_optimize, gru_loss], feed_dict= {x: tr_feature_batch, y: tr_feature_batch})
+                        print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                    else:
+                        #输出特定批次在两个子学习器中的预测值
+                        predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict= {x: tr_feature_batch})
+                        #将测试集中的数据经过训练好的初级学习器后的特征也预测出来,得到的值type= 'ndarray'
+                        te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
+                        #组合特征（特定批次训练集次级特征和测试集批次次级特征）
+                        super_training_set = np.array([predict_cnn, predict_gru]) if super_training_set.any() == None else \
+                            np.vstack((super_training_set, np.array([predict_cnn, predict_gru])))
 
-
+                        te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict= {x: te_feature_batch})
+                        super_testing_set = np.array([te_sufeature_cnn, te_sufeature_gru]) if super_testing_set.any() == None else \
+                            np.vstack((super_training_set, np.array([te_sufeature_cnn, te_sufeature_gru])))
                     train_steps -= 1
                     if train_steps <= 0:
                         coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
@@ -177,6 +196,14 @@ def stacking_main():
                 coord.request_stop()
                 # And wait for them to actually do it. 等待被指定的线程终止
                 coord.join(threads)
+
+            for sub_epoch in range(100000):
+                #将super_training_set按tr_target_batch同样批次大小（与tr_target_batch对应）读入gpu
+                _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_training_set, y: None})
+                print('次级学习器在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc))
+                _, loss_fc_test = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_testing_set, y: te_target_batch})
+                print('次级学习器测试集误差在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc_test))
+
 
 
 
