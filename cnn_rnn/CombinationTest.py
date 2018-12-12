@@ -158,44 +158,56 @@ def stacking_main():
         # Starts all queue runners collected in the graph.
         threads = tf.train.start_queue_runners(sess= sess, coord= coord)
 
-        train_steps = tr_batch_step #对于stacking策略，使用5折交叉验证，该参数设置为24（计数从0开始）: 5折 * 5组 = 25
+        train_steps = tr_batch_step #对于stacking策略，使用5折交叉验证，该参数设置为4（5折，计数从0开始）
         #定义次级学习器训练集批次特征矩阵和测试集批次特征矩阵（起始为空，在每次输出一个对应批次数据后连接到该次级训练集中）
         super_training_set = np.array(None)
         super_testing_set = np.array(None)
         #训练100000个epoch
-        for epoch in range(100000):
-            try:
-                while not coord.should_stop():  # 如果线程应该停止则返回True
-                    tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
-                    # print(cur_feature_batch, cur_target_batch)
-                    if not train_steps % 5:
-                        _, loss_cnn = sess.run([cnn_optimize, cnn_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
-                        print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
-                        _, loss_gru = sess.run([gru_optimize, gru_loss], feed_dict= {x: tr_feature_batch, y: tr_feature_batch})
-                        print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
-                    else:
-                        #输出特定批次在两个子学习器中的预测值
-                        predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict= {x: tr_feature_batch})
-                        #将测试集中的数据经过训练好的初级学习器后的特征也预测出来,得到的值type= 'ndarray'
-                        te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
-                        #组合特征（特定批次训练集次级特征和测试集批次次级特征）
-                        super_training_set = np.array([predict_cnn, predict_gru]) if super_training_set.any() == None else \
-                            np.vstack((super_training_set, np.array([predict_cnn, predict_gru])))
+        for group in range(5):
+            for epoch in range(100000):
+                try:
+                    while not coord.should_stop():  # 如果线程应该停止则返回True
+                        tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
+                        # print(cur_feature_batch, cur_target_batch)
+                        if not train_steps != group:
+                            _, loss_cnn = sess.run([cnn_optimize, cnn_loss],
+                                                   feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                            print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
+                            _, loss_gru = sess.run([gru_optimize, gru_loss],
+                                                   feed_dict={x: tr_feature_batch, y: tr_feature_batch})
+                            print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                        elif not epoch:
+                            #将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
+                            cross_tr_feature, cross_tr_target = tr_feature_batch, tr_target_batch
 
-                        te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict= {x: te_feature_batch})
-                        super_testing_set = np.array([te_sufeature_cnn, te_sufeature_gru]) if super_testing_set.any() == None else \
-                            np.vstack((super_training_set, np.array([te_sufeature_cnn, te_sufeature_gru])))
-                    train_steps -= 1
-                    if train_steps <= 0:
-                        coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
+                        train_steps -= 1
+                        if train_steps <= 0:
+                            coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
-            except tf.errors.OutOfRangeError:
-                print('Done training epoch limit reached')
-            finally:
-                # When done, ask the threads to stop. 请求该线程停止
-                coord.request_stop()
-                # And wait for them to actually do it. 等待被指定的线程终止
-                coord.join(threads)
+                except tf.errors.OutOfRangeError:
+                    print('Done training epoch limit reached')
+                finally:
+                    # When done, ask the threads to stop. 请求该线程停止
+                    coord.request_stop()
+                    # And wait for them to actually do it. 等待被指定的线程终止
+                    coord.join(threads)
+
+            # 输出特定批次在两个子学习器中的预测值
+            predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature})
+            # 将测试集中的数据经过训练好的初级学习器后的特征也预测出来,得到的值type= 'ndarray'
+            te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
+            # 组合特征（特定批次训练集次级特征和测试集批次次级特征）
+            super_training_set = np.array(
+                [predict_cnn, predict_gru]) if super_training_set.any() == None else \
+                np.vstack((super_training_set, np.array([predict_cnn, predict_gru])))
+
+            te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops],
+                                                          feed_dict={x: te_feature_batch})
+            super_testing_set = np.array(
+                [te_sufeature_cnn, te_sufeature_gru]) if super_testing_set.any() == None else \
+                np.vstack((super_training_set, np.array([te_sufeature_cnn, te_sufeature_gru])))
+
+
 
             for sub_epoch in range(100000):
                 #将super_training_set按tr_target_batch同样批次大小（与tr_target_batch对应）读入gpu

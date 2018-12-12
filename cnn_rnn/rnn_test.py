@@ -73,8 +73,15 @@ if __name__ == '__main__':
         #     _, loss_s = sess.run([opt, loss], feed_dict= {x: np.arange(80, dtype= np.float32).reshape(4, 20),
         #                                                   y: np.arange(4, dtype= np.float32)})
         #     print(loss_s)
-    d = np.array(None)
-    print(d, type(d))
+    a = 2
+    c = 2
+    b = 5
+    if a == 1:
+        b = 3
+    elif c != 3:
+        b = 4
+
+    print(b)
 
 
 
