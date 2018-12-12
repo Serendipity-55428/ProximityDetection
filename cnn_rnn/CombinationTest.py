@@ -159,11 +159,20 @@ def stacking_main():
         threads = tf.train.start_queue_runners(sess= sess, coord= coord)
 
         train_steps = tr_batch_step #对于stacking策略，使用5折交叉验证，该参数设置为4（5折，计数从0开始）
-        #定义次级学习器训练集批次特征矩阵和测试集批次特征矩阵（起始为空，在每次输出一个对应批次数据后连接到该次级训练集中）
-        super_training_set = np.array(None)
-        super_testing_set = np.array(None)
-        #训练100000个epoch
+        #初级学习器预测得到的两个特征进行组合后作为次级学习器的特征向量，起始值为空
+        super_tr_feature = np.array(None)
+        #初级学习器读取文件中训练集标签直接传到次级学习器中，起始值为空
+        super_tr_target_batch_all = np.array(None)
+        #测试样本经过初级学习器预测后得到两个特征组合为次级学习器所需特征向量，起始值为空
+        super_te_feature = np.array(None)
+        #测试样本标签在初级学习器读取文件后直接传到次级学习器中，起始值为空
+        super_te_target_batch_all = np.array(None)
+        #得到的次级学习器测试集特征取5次平均值
+        super_te_feature_ave = np.array(None)
+
+        #训练集5折，每折分别作为测试样本
         for group in range(5):
+            # 训练100000个epoch
             for epoch in range(100000):
                 try:
                     while not coord.should_stop():  # 如果线程应该停止则返回True
@@ -174,47 +183,61 @@ def stacking_main():
                                                    feed_dict={x: tr_feature_batch, y: tr_target_batch})
                             print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
                             _, loss_gru = sess.run([gru_optimize, gru_loss],
-                                                   feed_dict={x: tr_feature_batch, y: tr_feature_batch})
+                                                   feed_dict={x: tr_feature_batch, y: tr_target_batch})
                             print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
-                        elif not epoch:
+                        elif not epoch: #循环训练时只需在第一次提取训练集中待预测批次
                             #将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
-                            cross_tr_feature, cross_tr_target = tr_feature_batch, tr_target_batch
+                            cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
 
                         train_steps -= 1
                         if train_steps <= 0:
                             coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
                 except tf.errors.OutOfRangeError:
-                    print('Done training epoch limit reached')
+                    print('将训练集第 %s 折作为测试样本第 %s 轮' % (group, epoch))
                 finally:
                     # When done, ask the threads to stop. 请求该线程停止
                     coord.request_stop()
                     # And wait for them to actually do it. 等待被指定的线程终止
                     coord.join(threads)
 
-            # 输出特定批次在两个子学习器中的预测值
-            predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature})
+            # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]
+            predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch})
+
             # 将测试集中的数据经过训练好的初级学习器后的特征也预测出来,得到的值type= 'ndarray'
-            te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
-            # 组合特征（特定批次训练集次级特征和测试集批次次级特征）
-            super_training_set = np.array(
-                [predict_cnn, predict_gru]) if super_training_set.any() == None else \
-                np.vstack((super_training_set, np.array([predict_cnn, predict_gru])))
+            te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch]) #用while##############
 
-            te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops],
-                                                          feed_dict={x: te_feature_batch})
-            super_testing_set = np.array(
-                [te_sufeature_cnn, te_sufeature_gru]) if super_testing_set.any() == None else \
-                np.vstack((super_training_set, np.array([te_sufeature_cnn, te_sufeature_gru])))
+            # 组合特征得到次级学习器训练集特征矩阵
+            super_tr_feature = np.hstack((predict_cnn, predict_gru)) if super_tr_feature.any() == None else \
+                np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru))))
+
+            #组合标签得到次级学习器训练集标签矩阵
+            super_tr_target_batch_all = super_tr_target_batch if super_tr_target_batch_all.any() == None else \
+                np.vstack((super_tr_target_batch_all, super_tr_target_batch))
+
+            #对原始测试集应用训练好的两个子学习器做两个次级学习器所需特征预测，并组合为特征向量
+            te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch})
+
+            #组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
+            super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru)) if super_te_feature.any() == None else \
+                np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru))))
+            #递归取平均
+            super_te_feature_ave = super_te_feature if group == 0 else \
+                (group * super_te_feature_ave + super_te_feature) / (group + 1)
+
+            #组合标签得到次级学习器测试集标签矩阵
+            super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == None else \
+                np.vstack((super_te_target_batch_all, te_target_batch))
 
 
 
-            for sub_epoch in range(100000):
-                #将super_training_set按tr_target_batch同样批次大小（与tr_target_batch对应）读入gpu
-                _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_training_set, y: None})
-                print('次级学习器在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc))
-                _, loss_fc_test = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_testing_set, y: te_target_batch})
-                print('次级学习器测试集误差在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc_test))
+
+            # for sub_epoch in range(100000):
+            #     #将super_training_set按tr_target_batch同样批次大小（与tr_target_batch对应）读入gpu
+            #     _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_training_set, y: None})
+            #     print('次级学习器在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc))
+            #     _, loss_fc_test = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_testing_set, y: te_target_batch})
+            #     print('次级学习器测试集误差在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc_test))
 
 
 
