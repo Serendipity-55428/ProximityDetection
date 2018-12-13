@@ -58,43 +58,64 @@ def stacking_second_main():
     te_files = None
     te_num_epochs = None
 
-    # 定义读取训练集数据对象
-    train_fileoperation = FileoOperation(tr_p_in, tr_filename, tr_read_in_fun, tr_num_shards, tr_instance_per_shard,
-                                         tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity,
-                                         tr_batch_fun, tr_batch_step)
+    with tf.name_scope('data_batch'):
+        # 定义读取训练集数据对象
+        train_fileoperation = FileoOperation(tr_p_in, tr_filename, tr_read_in_fun, tr_num_shards, tr_instance_per_shard,
+                                             tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity,
+                                             tr_batch_fun, tr_batch_step)
 
-    train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files, num_epochs=tr_num_epochs)
+        train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files, num_epochs=tr_num_epochs)
 
-    # 定义读取测试集数据对象
-    test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
-                                        te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
-                                        te_batch_fun, te_batch_step)
+        # 定义读取测试集数据对象
+        test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
+                                            te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
+                                            te_batch_fun, te_batch_step)
 
-    test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files, num_epochs=te_num_epochs)
+        test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files, num_epochs=te_num_epochs)
 
-    # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
-    x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape])
-    y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape])
+    with tf.name_scope('x-y'):
+        # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
+        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape])
+        y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape])
 
     #############################FC###############################
-    # 定义fc次级学习器中全连接层参数、
-    fc_weights = {
-        'w_sub_1': tf.Variable(tf.truncated_normal([2, 128], mean=0, stddev=1.0), dtype=tf.float32),
-        'w_sub_2': tf.Variable(tf.truncated_normal([128, 64], mean=0, stddev=1.0), dtype=tf.float32),
-        'w_sub_3': tf.Variable(tf.truncated_normal([64, 1], mean=0, stddev=1.0), dtype=tf.float32),
-        'b_sub_1': tf.Variable(tf.truncated_normal([128], mean=0, stddev=1.0), dtype=tf.float32),
-        'b_sub_2': tf.Variable(tf.truncated_normal([64], mean=0, stddev=1.0), dtype=tf.float32),
-        'b_sub_3': tf.Variable(tf.truncated_normal([1], mean=0, stddev=1.0), dtype=tf.float32)
-    }
+    # 定义fc次级学习器中全连接层参数
+    with tf.name_scope('fc_weights'):
+        fc_weights = {
+            'w_sub_1': tf.Variable(tf.truncated_normal([2, 128], mean=0, stddev=1.0), dtype=tf.float32),
+            'w_sub_2': tf.Variable(tf.truncated_normal([128, 64], mean=0, stddev=1.0), dtype=tf.float32),
+            'w_sub_3': tf.Variable(tf.truncated_normal([64, 1], mean=0, stddev=1.0), dtype=tf.float32),
+            'b_sub_1': tf.Variable(tf.truncated_normal([128], mean=0, stddev=1.0), dtype=tf.float32),
+            'b_sub_2': tf.Variable(tf.truncated_normal([64], mean=0, stddev=1.0), dtype=tf.float32),
+            'b_sub_3': tf.Variable(tf.truncated_normal([1], mean=0, stddev=1.0), dtype=tf.float32)
+        }
 
-    # 定义FC次级学习器的最终输出ops
-    fc_ops = stacking_FC(x=x, arg_dict=fc_weights)
-    # 定义次级学习器的损失函数和优化器
-    fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function=tf.train.RMSPropOptimizer, learning_rate=1e-4)
+        variable_summaries(fc_weights['w_sub_1'], 'w_sub_1')
+        variable_summaries(fc_weights['w_sub_2'], 'w_sub_2')
+        variable_summaries(fc_weights['w_sub_3'], 'w_sub_3')
+        variable_summaries(fc_weights['b_sub_1'], 'b_sub_1')
+        variable_summaries(fc_weights['b_sub_2'], 'b_sub_2')
+        variable_summaries(fc_weights['b_sub_3'], 'b_sub_3')
 
+    with tf.name_scope('fc_ops'):
+        # 定义FC次级学习器的最终输出ops
+        fc_ops = stacking_FC(x=x, arg_dict=fc_weights)
+    with tf.name_scope('fc_optimize-loss'):
+        # 定义次级学习器的损失函数和优化器
+        fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function=tf.train.RMSPropOptimizer,
+                                                learning_rate=1e-4)
+
+    # 摘要汇总
+    merged = tf.summary.merge_all()
+
+    init = tf.global_variables_initializer()
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
     #############################Session###########################
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    with tf.Session(config=tf.ConfigProto(gpu_options= gpu_options)) as sess:
+        sess.run(init)
+
+        # 摘要文件
+        summary_writer = tf.summary.FileWriter('logs/', sess.graph)
 
         # 线程调配管理器
         coord = tf.train.Coordinator()
@@ -105,6 +126,7 @@ def stacking_second_main():
         test_steps = te_batch_step  # 子学习器中测试集分批次预测
 
         for epoch in range(100000):
+            summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True
                     #批量读取次级学习器训练集特征和标签数据
@@ -124,6 +146,8 @@ def stacking_second_main():
                 # And wait for them to actually do it. 等待被指定的线程终止
                 coord.join(threads)
 
+                summary_writer.add_summary(summary, epoch)
+
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True
                     #批量读取次级学习器测试集特征和标签数据
@@ -142,6 +166,12 @@ def stacking_second_main():
                 coord.request_stop()
                 # And wait for them to actually do it. 等待被指定的线程终止
                 coord.join(threads)
+
+        # 关闭摘要
+        summary_writer.close()
+
+if __name__ == '__main__':
+    stacking_second_main()
 
 
 

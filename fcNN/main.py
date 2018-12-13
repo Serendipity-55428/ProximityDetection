@@ -13,7 +13,7 @@ import tensorflow as tf
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
-from dataoperation import FileArrangement, LoadFile, SaveFile, CostError
+from fcNN.dataoperation import FileArrangement, LoadFile, SaveFile, CostError
 import time
 
 def variable_summaries(var, name):
