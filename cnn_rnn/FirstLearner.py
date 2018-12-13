@@ -15,6 +15,8 @@ import numpy as np
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 from cnn_rnn.Fmake2read import FileoOperation
 from cnn_rnn.Sub_learning import stacking_CNN, stacking_GRU, stacking_FC
+import pickle
+import os.path
 import time
 
 def variable_summaries(var, name):
@@ -25,6 +27,17 @@ def variable_summaries(var, name):
         tf.summary.scalar('mean/' + name, mean)
         stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
         tf.summary.scalar('stddev/' + name, stddev)
+
+def SaveFile(data, p):
+    '''
+    存储整理好的数据
+    :param data: 待存入该文件的数据
+    :param p: 新生成的文件绝对路径
+    :return: None
+    '''
+    if not os.path.exists(p):
+        with open(p, 'wb') as file:
+            pickle.dump(data, file)
 
 def sub_LossOptimize(net, target, optimize_function, learning_rate):
     '''
@@ -40,11 +53,11 @@ def sub_LossOptimize(net, target, optimize_function, learning_rate):
         optimize = optimize_function(learning_rate= learning_rate).minimize(loss)
     return optimize, loss
 
-def stacking_main():
+def stacking_first_main():
     '''
-    stacking策略
+    stacking策略初级学习器训练和交叉预测
     :param files: ParseDequeue函数所需参数
-    :return: 多线程生成特征矩阵和标签向量
+    :return: None
     '''
     #训练集数据所需参数
     tr_p_in = None
@@ -132,20 +145,20 @@ def stacking_main():
     gru_optimize, gru_loss = sub_LossOptimize(gru_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
 
     #############################FC###############################
-    #定义fc次级学习器中全连接层参数、
-    fc_weights = {
-        'w_sub_1': tf.Variable(tf.truncated_normal([2, 128], mean= 0, stddev= 1.0), dtype= tf.float32),
-        'w_sub_2': tf.Variable(tf.truncated_normal([128, 64], mean= 0, stddev= 1.0), dtype= tf.float32),
-        'w_sub_3': tf.Variable(tf.truncated_normal([64, 1], mean= 0, stddev= 1.0), dtype= tf.float32),
-        'b_sub_1': tf.Variable(tf.truncated_normal([128], mean= 0, stddev= 1.0), dtype= tf.float32),
-        'b_sub_2': tf.Variable(tf.truncated_normal([64], mean= 0, stddev= 1.0), dtype= tf.float32),
-        'b_sub_3': tf.Variable(tf.truncated_normal([1], mean= 0, stddev= 1.0), dtype= tf.float32)
-    }
-
-    #定义FC次级学习器的最终输出ops
-    fc_ops = stacking_FC(x= x, arg_dict= fc_weights)
-    #定义次级学习器的损失函数和优化器
-    fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
+    # #定义fc次级学习器中全连接层参数、
+    # fc_weights = {
+    #     'w_sub_1': tf.Variable(tf.truncated_normal([2, 128], mean= 0, stddev= 1.0), dtype= tf.float32),
+    #     'w_sub_2': tf.Variable(tf.truncated_normal([128, 64], mean= 0, stddev= 1.0), dtype= tf.float32),
+    #     'w_sub_3': tf.Variable(tf.truncated_normal([64, 1], mean= 0, stddev= 1.0), dtype= tf.float32),
+    #     'b_sub_1': tf.Variable(tf.truncated_normal([128], mean= 0, stddev= 1.0), dtype= tf.float32),
+    #     'b_sub_2': tf.Variable(tf.truncated_normal([64], mean= 0, stddev= 1.0), dtype= tf.float32),
+    #     'b_sub_3': tf.Variable(tf.truncated_normal([1], mean= 0, stddev= 1.0), dtype= tf.float32)
+    # }
+    #
+    # #定义FC次级学习器的最终输出ops
+    # fc_ops = stacking_FC(x= x, arg_dict= fc_weights)
+    # #定义次级学习器的损失函数和优化器
+    # fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
 
     #############################Session###########################
     with tf.Session() as sess:
@@ -195,7 +208,7 @@ def stacking_main():
                             coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
                 except tf.errors.OutOfRangeError:
-                    print('将训练集第 %s 折作为测试样本第 %s 轮' % (group, epoch))
+                    print('第 %s 轮, 将训练集第 %s 折作为测试样本' % (epoch, group))
                 finally:
                     # When done, ask the threads to stop. 请求该线程停止
                     coord.request_stop()
@@ -255,6 +268,14 @@ def stacking_main():
                 # 重置预测批次数为最大
                 test_steps = te_batch_step
 
+    #将次级学习器训练集和测试集特征和标签合并存入各自的文件
+    train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
+    test_database = np.hstack((super_te_feature_ave, super_te_target_batch_all))
+    #文件路径
+    p_train = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TRAIN.pickle'
+    p_test = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TEST.pickle'
+    SaveFile(train_database, p_train)
+    SaveFile(test_database, p_test)
 
             # # 将测试集中的数据经过训练好的初级学习器后的特征也预测出来,得到的值type= 'ndarray'
             # te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch]) #用while##############
@@ -281,10 +302,7 @@ def stacking_main():
             #     _, loss_fc_test = sess.run([fc_optimize, fc_loss], feed_dict= {x: super_testing_set, y: te_target_batch})
             #     print('次级学习器测试集误差在第 %s 个epoch的误差为: %s' % (sub_epoch, loss_fc_test))
 
-
-
-
-
 if __name__ == '__main__':
- ''''''
+    stacking_first_main()
+
 
