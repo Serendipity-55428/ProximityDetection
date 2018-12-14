@@ -217,18 +217,30 @@ def stacking_first_main():
         for group in range(5):
             # 训练100000个epoch
             for epoch in range(100000):
-                summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
                 try:
                     while not coord.should_stop():  # 如果线程应该停止则返回True
                         tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
                         # print(cur_feature_batch, cur_target_batch)
                         if not train_steps != (4 - group):
+                            #######################
+                            #读入后20个特征
                             _, loss_cnn = sess.run([cnn_optimize, cnn_loss],
-                                                   feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                                                   feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
                             print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
                             _, loss_gru = sess.run([gru_optimize, gru_loss],
-                                                   feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                                                   feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
                             print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                            #######################
+                            #######################
+                            #读入所有特征
+                            # _, loss_cnn = sess.run([cnn_optimize, cnn_loss],
+                            #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                            # print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
+                            # _, loss_gru = sess.run([gru_optimize, gru_loss],
+                            #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                            # print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                            #######################
                         elif not epoch: #循环训练时只需在第一次提取训练集中待预测批次
                             #将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
                             cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
@@ -252,11 +264,22 @@ def stacking_first_main():
 
             ################################对训练集数据进行次级特征预测##########################
             # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]
-            predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch})
+            ######################
+            #读入后20个特征
+            predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch[:, 4:]})
 
-            # 组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
-            super_tr_feature = np.hstack((predict_cnn, predict_gru)) if super_tr_feature.any() == None else \
-                np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru))))
+            # (读入后20个特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
+            super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5])) if super_tr_feature.any() == None else \
+                np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5]))))
+            ######################
+            ######################
+            #读入全部特征
+            # predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch})
+
+            # # (读入全部特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
+            # super_tr_feature = np.hstack((predict_cnn, predict_gru)) if super_tr_feature.any() == None else \
+            #     np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru))))
+            #####################
 
             # 组合标签得到次级学习器训练集标签矩阵（需要存储至新文件）
             super_tr_target_batch_all = super_tr_target_batch if super_tr_target_batch_all.any() == None else \
@@ -269,11 +292,23 @@ def stacking_first_main():
                     te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
 
                     # 对原始测试集应用训练好的两个子学习器做两个次级学习器所需特征预测，并组合为特征向量
-                    te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch})
+                    #######################
+                    # 读入后20个特征情况
+                    te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch[:, 4:]})
 
-                    # 组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
-                    super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru)) if super_te_feature.any() == None else \
-                        np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru))))
+                    # (读入所有特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
+                    super_te_feature = np.hstack(
+                        (te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :5])) if super_te_feature.any() == None else \
+                        np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :5]))))
+                    #######################
+                    #######################
+                    #读入所有特征情况
+                    # te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch})
+                    #
+                    # # (读入所有特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
+                    # super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru)) if super_te_feature.any() == None else \
+                    #     np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru))))
+                    #######################
 
                     # 组合标签得到次级学习器测试集标签矩阵（需要存储至新文件）
                     super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == None else \
@@ -309,7 +344,6 @@ def stacking_first_main():
 
     # 关闭摘要
     summary_writer.close()
-
 
 if __name__ == '__main__':
     stacking_first_main()

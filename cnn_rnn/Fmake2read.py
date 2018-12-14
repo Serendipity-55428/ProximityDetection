@@ -191,7 +191,7 @@ class FileoOperation:
             # 线程调配管理器
             coord = tf.train.Coordinator()
             # Starts all queue runners collected in the graph.
-            threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+            threads = tf.train.start_queue_runners(sess=sess, coord= coord)
 
             # 获取并打印组合之后的样例
             # 由于tf.train。match_filenames_once函数机制:

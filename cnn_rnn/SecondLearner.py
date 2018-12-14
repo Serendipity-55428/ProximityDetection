@@ -113,6 +113,7 @@ def stacking_second_main():
     #############################Session###########################
     with tf.Session(config=tf.ConfigProto(gpu_options= gpu_options)) as sess:
         sess.run(init)
+        sess.run(tf.local_variables_initializer())
 
         # 摘要文件
         summary_writer = tf.summary.FileWriter('logs/', sess.graph)
