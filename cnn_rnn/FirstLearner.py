@@ -18,6 +18,11 @@ from cnn_rnn.Sub_learning import stacking_CNN, stacking_GRU, stacking_FC
 import pickle
 import os.path
 import time
+import os
+from tensorflow.python.framework import graph_util
+
+#得到pb文件保存路径（当前目录下）
+pb_file_path = os.getcwd()
 
 def variable_summaries(var, name):
     '''
