@@ -59,6 +59,18 @@ def sub_LossOptimize(net, target, optimize_function, learning_rate):
         optimize = optimize_function(learning_rate= learning_rate).minimize(loss)
     return optimize, loss
 
+def coord_threads(sess):
+    '''
+    生成线程调配管理器和线程队列
+    :param sess: 会话参数
+    :return: coord, threads
+    '''
+    # 线程调配管理器
+    coord = tf.train.Coordinator()
+    # Starts all queue runners collected in the graph.
+    threads = tf.train.start_queue_runners(sess= sess, coord= coord)
+    return coord, threads
+
 def stacking_first_main():
     '''
     stacking策略初级学习器训练和交叉预测
@@ -208,15 +220,13 @@ def stacking_first_main():
         # 摘要文件
         summary_writer = tf.summary.FileWriter('logs/', sess.graph)
 
-        # 线程调配管理器
-        coord = tf.train.Coordinator()
-        # Starts all queue runners collected in the graph.
-        threads = tf.train.start_queue_runners(sess= sess, coord= coord)
-
         #训练集5折，每折分别作为测试样本
         for group in range(5):
             # 训练100000个epoch
             for epoch in range(100000):
+
+                coord, threads = coord_threads(sess= sess)
+
                 summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
                 try:
                     while not coord.should_stop():  # 如果线程应该停止则返回True
@@ -225,12 +235,14 @@ def stacking_first_main():
                         if not train_steps != (4 - group):
                             #######################
                             #读入后20个特征
-                            _, loss_cnn = sess.run([cnn_optimize, cnn_loss],
-                                                   feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
-                            print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
-                            _, loss_gru = sess.run([gru_optimize, gru_loss],
-                                                   feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
-                            print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                            _ = sess.run(cnn_optimize, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                            _ = sess.run(gru_optimize, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                            if not (epoch % 1000):
+                                loss_cnn = sess.run(cnn_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                                loss_gru = sess.run(gru_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                                print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
+                                print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+
                             #######################
                             #######################
                             #读入所有特征
@@ -262,6 +274,16 @@ def stacking_first_main():
                     # 重置训练批次数为最大
                     train_steps = tr_batch_step
 
+                if not (epoch % 100):
+                    #对1折测试集输出均方差
+                    loss_cnn_test = sess.run(cnn_loss, feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
+                    loss_gru_test = sess.run(gru_loss, feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
+                    print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn_test))
+                    print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
+
+            # 关闭摘要
+            summary_writer.close()
+
             ################################对训练集数据进行次级特征预测##########################
             # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]
             ######################
@@ -286,6 +308,9 @@ def stacking_first_main():
                 np.vstack((super_tr_target_batch_all, super_tr_target_batch))
 
             ############################对测试集数据进行初级预测得到次级特征#########################
+
+            coord, threads = coord_threads(sess= sess)
+
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True
                     #读取测试集一个批次的特征和标签
@@ -342,8 +367,8 @@ def stacking_first_main():
     SaveFile(train_database, p_train)
     SaveFile(test_database, p_test)
 
-    # 关闭摘要
-    summary_writer.close()
+    # # 关闭摘要
+    # summary_writer.close()
 
 if __name__ == '__main__':
     stacking_first_main()
