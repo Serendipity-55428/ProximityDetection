@@ -14,6 +14,7 @@ import tensorflow as tf
 import numpy as np
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 import time
+from fcNN.dataoperation import Excel2Numpy
 
 def variable_summaries(var, name):
     '''监控指标可视化函数'''
@@ -181,6 +182,21 @@ def main_2():
 
     x = np.arange(80, dtype= np.float32).reshape(4, 20)
     y = np.arange(4, dtype= np.float32)
+    #导入OLDENBURG数据进行测试
+    # p = r'C:\Users\xiaosong\Desktop\TeamProject\Oldeburg_revise.xlsx'
+    # data = Excel2Numpy(p)
+    # # print(data)
+    # # print(data.shape)
+    # i = 0
+    # while i < data.shape[0]:
+    #     if data[i, -1] == 0.01:
+    #         data = np.delete(data, i, axis=0)
+    #     else:
+    #         i += 1
+    # print(data)
+    # print(data.shape)
+    # x = data[:, :-1]
+    # y = data[:, -1]
     y_T = tf.placeholder(dtype= tf.float32, shape= [4])
     net_1 = MUlstm(x, num_units= 256, arg_dict= arg_dict)
 
@@ -210,3 +226,15 @@ def main_2():
 if __name__ == '__main__':
     # main_1()
     main_2()
+    # p = r'C:\Users\xiaosong\Desktop\TeamProject\Oldeburg_revise.xlsx'
+    # data = Excel2Numpy(p)
+    # # print(data)
+    # # print(data.shape)
+    # i = 0
+    # while i < data.shape[0]:
+    #     if data[i, -1] == 0.01:
+    #         data = np.delete(data, i, axis= 0)
+    #     else:
+    #         i += 1
+    # print(data)
+    # print(data.shape)

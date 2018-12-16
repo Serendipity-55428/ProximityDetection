@@ -49,7 +49,7 @@ class RecurrentNeuralNetwork:
         :param cell_bw：读入反向循环LSTM网络
         :param inputs: 读入Tensor, shape= [batch_size, max_time, depth]
         :param batch_size: Tensor中包含的样本数
-        :return: max_time * 2个隐藏层的h,c,最终的输出h,c
+        :return: max_time * 2个隐藏层的h,c, 最终的输出h,c
         '''
         outputs, final_state = tf.nn.bidirectional_dynamic_rnn(cell_fw= cell_fw, cell_bw= cell_bw,
                                                          inputs= inputs, initial_state_fw= cell_fw.zero_state(batch_size, tf.float32),
@@ -134,7 +134,7 @@ class FCNN:
     '''
     __slots__ = ('__x', '__y', '__keep_prob')
 
-    def __init__(self, x, keep_prob):
+    def __init__(self, x, keep_prob= 1.0):
         '''
         :param x: Tensor, 批次数据特征
         :param keep_prob: dropout屏蔽阻断神经元概率

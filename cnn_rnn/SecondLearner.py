@@ -12,7 +12,7 @@
 
 import tensorflow as tf
 import numpy as np
-from cnn_rnn.FirstLearner import variable_summaries, sub_LossOptimize
+from cnn_rnn.FirstLearner import variable_summaries, sub_LossOptimize, coord_threads
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 from cnn_rnn.Fmake2read import FileoOperation
 from cnn_rnn.sub_learning import stacking_CNN, stacking_GRU, stacking_FC
@@ -90,23 +90,23 @@ def stacking_second_main():
             'b_sub_3': tf.Variable(tf.truncated_normal([1], mean=0, stddev=1.0), dtype=tf.float32)
         }
 
-        variable_summaries(fc_weights['w_sub_1'], 'w_sub_1')
-        variable_summaries(fc_weights['w_sub_2'], 'w_sub_2')
-        variable_summaries(fc_weights['w_sub_3'], 'w_sub_3')
-        variable_summaries(fc_weights['b_sub_1'], 'b_sub_1')
-        variable_summaries(fc_weights['b_sub_2'], 'b_sub_2')
-        variable_summaries(fc_weights['b_sub_3'], 'b_sub_3')
+        # variable_summaries(fc_weights['w_sub_1'], 'w_sub_1')
+        # variable_summaries(fc_weights['w_sub_2'], 'w_sub_2')
+        # variable_summaries(fc_weights['w_sub_3'], 'w_sub_3')
+        # variable_summaries(fc_weights['b_sub_1'], 'b_sub_1')
+        # variable_summaries(fc_weights['b_sub_2'], 'b_sub_2')
+        # variable_summaries(fc_weights['b_sub_3'], 'b_sub_3')
 
     with tf.name_scope('fc_ops'):
         # 定义FC次级学习器的最终输出ops
-        fc_ops = stacking_FC(x=x, arg_dict=fc_weights)
+        fc_ops = stacking_FC(x= x, arg_dict= fc_weights)
     with tf.name_scope('fc_optimize-loss'):
         # 定义次级学习器的损失函数和优化器
-        fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function=tf.train.RMSPropOptimizer,
+        fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer,
                                                 learning_rate=1e-4)
 
     # 摘要汇总
-    merged = tf.summary.merge_all()
+    # merged = tf.summary.merge_all()
 
     init = tf.global_variables_initializer()
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
@@ -116,18 +116,16 @@ def stacking_second_main():
         sess.run(tf.local_variables_initializer())
 
         # 摘要文件
-        summary_writer = tf.summary.FileWriter('logs/', sess.graph)
+        # summary_writer = tf.summary.FileWriter('logs/', sess.graph)
 
         # 线程调配管理器
-        coord = tf.train.Coordinator()
-        # Starts all queue runners collected in the graph.
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        coord, threads = coord_threads(sess= sess)
 
         train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证，该参数设置为4（5折，计数从0开始）
         test_steps = te_batch_step  # 子学习器中测试集分批次预测
 
         for epoch in range(100000):
-            summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+            # summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True
                     #批量读取次级学习器训练集特征和标签数据
@@ -141,8 +139,8 @@ def stacking_second_main():
                     # _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
                     # print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
-                    test_steps -= 1
-                    if test_steps <= 0:
+                    train_steps -= 1
+                    if train_steps <= 0:
                         coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
             except tf.errors.OutOfRangeError:
@@ -153,7 +151,10 @@ def stacking_second_main():
                 # And wait for them to actually do it. 等待被指定的线程终止
                 coord.join(threads)
 
-                summary_writer.add_summary(summary, epoch)
+                # summary_writer.add_summary(summary, epoch)
+
+            #更新线程调配器
+            coord, threads = coord_threads(sess= sess)
 
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True
@@ -175,7 +176,7 @@ def stacking_second_main():
                 coord.join(threads)
 
         # 关闭摘要
-        summary_writer.close()
+        # summary_writer.close()
 
 if __name__ == '__main__':
     stacking_second_main()

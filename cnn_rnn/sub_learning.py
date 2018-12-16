@@ -47,7 +47,7 @@ def stacking_GRU(x, num_units, arg_dict):
     :param arg_dict: 全连接层权重以及偏置量矩阵散列
     :return: MULSTM模型最终输出
     '''
-    with tf.name_scope('multi_LSTM(GRU)'):
+    with tf.name_scope('multi_LSTMorGRU'):
         # 生成RecurrentNeuralNetwork对象
 
         #一层一对一输出隐层状态的GRU/LSTM,一层多对一输出隐层状态的GRU/LSTM,
@@ -59,8 +59,8 @@ def stacking_GRU(x, num_units, arg_dict):
         # GRU
         cells = recurrentnn.multiLSTM(net_name='GRU', num_unit= num_units, layer_num= 2)
         # outputs.shape= [batch_size, max_time, hide_size]
-        # multi_state= ((h, c), (h, c)), h.shape= [batch_size, hide_size]
-        outputs, multi_state = recurrentnn.dynamic_rnn(cells, x, max_time= 6) #原始数据样本特征为24，被平均分为6份输入
+        # (lstm)multi_state= ((h, c), (h, c)), (gru)multi_state= (h, h) h.shape= [batch_size, hide_size]
+        outputs, multi_state = recurrentnn.dynamic_rnn(cells, x, max_time= 5) #若特征数24则分成6份，若特征数20则分成5份
         # LSTM
         # result = multi_state[-1].h
         # GRU

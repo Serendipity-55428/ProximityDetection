@@ -20,9 +20,6 @@ import time
 import os
 from tensorflow.python.framework import graph_util
 
-#得到pb文件保存路径（当前目录下）
-pb_file_path = os.getcwd()
-
 def variable_summaries(var, name):
     '''
     监控指标可视化函数
@@ -59,7 +56,7 @@ def sub_LossOptimize(net, target, optimize_function, learning_rate):
     '''
     with tf.name_scope('loss_optimize'):
         loss = tf.reduce_mean(tf.square(net - target))
-        tf.summary.scalar('loss', loss)
+        # tf.summary.scalar('loss', loss)
         optimize = optimize_function(learning_rate= learning_rate).minimize(loss)
     return optimize, loss
 
@@ -81,39 +78,43 @@ def stacking_first_main():
     :param files: ParseDequeue函数所需参数
     :return: None
     '''
+
+    # 得到pb文件保存路径（当前目录下）
+    pb_file_path = os.getcwd()
+
     #训练集数据所需参数
-    tr_p_in = None
-    tr_filename = None
-    tr_read_in_fun = None
-    tr_num_shards = None
-    tr_instance_per_shard = None
-    tr_ftype = None
-    tr_ttype = None
-    tr_fshape = None
-    tr_tshape = None
-    tr_batch_size = None
-    tr_capacity = None
-    tr_batch_fun = None
-    tr_batch_step = None
-    tr_files = None
-    tr_num_epochs = None
+    tr_p_in = 0
+    tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtrain.tfrecords-%.5d-of-%.5d'
+    tr_read_in_fun = fun
+    tr_num_shards = 5
+    tr_instance_per_shard = 80
+    tr_ftype = tf.float64
+    tr_ttype = tf.float64
+    tr_fshape = 24
+    tr_tshape = 1
+    tr_batch_size = 40
+    tr_capacity = 400 + 40 * 40
+    tr_batch_fun = tf.train.batch
+    tr_batch_step = 4
+    tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtrain.tfrecords-*'
+    tr_num_epochs = 5000000
 
     #测试集数据所需参数
-    te_p_in = None
-    te_filename = None
-    te_read_in_fun = None
-    te_num_shards = None
-    te_instance_per_shard = None
-    te_ftype = None
-    te_ttype = None
-    te_fshape = None
-    te_tshape = None
-    te_batch_size = None
-    te_capacity = None
-    te_batch_fun = None
-    te_batch_step = None
-    te_files = None
-    te_num_epochs = None
+    te_p_in = 0
+    te_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtest.tfrecords-%.5d-of-%.5d'
+    te_read_in_fun = fun
+    te_num_shards = 5
+    te_instance_per_shard = 80
+    te_ftype = tf.float64
+    te_ttype = tf.float64
+    te_fshape = 24
+    te_tshape = 1
+    te_batch_size = 40
+    te_capacity = 400 + 40 * 40
+    te_batch_fun = tf.train.batch
+    te_batch_step = 4
+    te_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtest.tfrecords-*'
+    te_num_epochs= 5000000
 
     with tf.name_scope('data_batch'):
         # 定义读取训练集数据对象
@@ -149,14 +150,14 @@ def stacking_first_main():
             'bd2': tf.Variable(tf.truncated_normal([1], mean=0, stddev=1.0), dtype=tf.float32)
         }
 
-        variable_summaries(cnn_weights['wc1'], 'wc1')
-        variable_summaries(cnn_weights['wc2'], 'wc2')
-        variable_summaries(cnn_weights['bc1'], 'bc1')
-        variable_summaries(cnn_weights['bc2'], 'bc2')
-        variable_summaries(cnn_weights['wd1'], 'wd1')
-        variable_summaries(cnn_weights['bd1'], 'bd1')
-        variable_summaries(cnn_weights['wd2'], 'wd2')
-        variable_summaries(cnn_weights['bd2'], 'bd2')
+        # variable_summaries(cnn_weights['wc1'], 'wc1')
+        # variable_summaries(cnn_weights['wc2'], 'wc2')
+        # variable_summaries(cnn_weights['bc1'], 'bc1')
+        # variable_summaries(cnn_weights['bc2'], 'bc2')
+        # variable_summaries(cnn_weights['wd1'], 'wd1')
+        # variable_summaries(cnn_weights['bd1'], 'bd1')
+        # variable_summaries(cnn_weights['wd2'], 'wd2')
+        # variable_summaries(cnn_weights['bd2'], 'bd2')
 
     #定义CNN类对象用以对数据Tensor进行改变形状
     cnn = CNN()
@@ -182,19 +183,19 @@ def stacking_first_main():
             'b_2': tf.Variable(tf.truncated_normal([64], mean=0, stddev=1.0), dtype=tf.float32)
         }
 
-        variable_summaries(gru_weights['w_1'], 'w_1')
-        variable_summaries(gru_weights['w_2'], 'w_2')
-        variable_summaries(gru_weights['b_1'], 'b_1')
-        variable_summaries(gru_weights['b_2'], 'b_2')
+        # variable_summaries(gru_weights['w_1'], 'w_1')
+        # variable_summaries(gru_weights['w_2'], 'w_2')
+        # variable_summaries(gru_weights['b_1'], 'b_1')
+        # variable_summaries(gru_weights['b_2'], 'b_2')
 
     with tf.name_scope('gru_ops'):
         # 定义多层GRU的最终输出ops
-        gru_ops = stacking_GRU(x=x, num_units=256, arg_dict=gru_weights)
+        gru_ops = stacking_GRU(x= tf.Session().run(x), num_units= 256, arg_dict=gru_weights)
 
     with tf.name_scope('gru_optimize-loss'):
         # 定义GRU自学习器的损失函数和优化器
         gru_optimize, gru_loss = sub_LossOptimize(gru_ops, y, optimize_function=tf.train.RMSPropOptimizer,
-                                                  learning_rate=1e-4)
+                                                  learning_rate= 1e-4)
 
     train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证，该参数设置为4（5折，计数从0开始）
     test_steps = te_batch_step  # 子学习器中测试集分批次预测
@@ -210,7 +211,7 @@ def stacking_first_main():
     super_te_feature_ave = np.array(None)
 
     # 摘要汇总
-    merged = tf.summary.merge_all()
+    # merged = tf.summary.merge_all()
 
     init = tf.global_variables_initializer()
 
@@ -221,7 +222,7 @@ def stacking_first_main():
         sess.run(tf.local_variables_initializer())
         sess.run(init)
         # 摘要文件
-        summary_writer = tf.summary.FileWriter('logs/', sess.graph)
+        # summary_writer = tf.summary.FileWriter('logs/', sess.graph)
 
         #训练集5折，每折分别作为测试样本
         for group in range(5):
@@ -242,7 +243,7 @@ def stacking_first_main():
 
                 coord, threads = coord_threads(sess= sess)
 
-                summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
+                # summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
                 try:
                     while not coord.should_stop():  # 如果线程应该停止则返回True
                         tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
@@ -284,7 +285,7 @@ def stacking_first_main():
                     # And wait for them to actually do it. 等待被指定的线程终止
                     coord.join(threads)
 
-                    summary_writer.add_summary(summary, epoch)
+                    # summary_writer.add_summary(summary, epoch)
 
                     # 重置训练批次数为最大
                     train_steps = tr_batch_step
@@ -297,7 +298,7 @@ def stacking_first_main():
                     print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
 
             # 关闭摘要
-            summary_writer.close()
+            # summary_writer.close()
 
             #存储计算图为pb格式
             # Replaces all the variables in a graph with constants of the same values
@@ -399,8 +400,12 @@ def stacking_first_main():
     SaveFile(train_database, p_train)
     SaveFile(test_database, p_test)
 
-    # # 关闭摘要
+    # 关闭摘要
     # summary_writer.close()
+
+def fun(p):
+    '''不对数据做任何处理'''
+    return np.arange(400*24).reshape(400, 24), np.arange(400)
 
 if __name__ == '__main__':
     stacking_first_main()
