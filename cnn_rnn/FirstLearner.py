@@ -226,6 +226,18 @@ def stacking_first_main():
 
         #训练集5折，每折分别作为测试样本
         for group in range(5):
+
+            #导入前一次训练保存的计算图
+            if group:
+                # Loads the model from a SavedModel as specified by tags
+                tf.saved_model.loader.load(sess, ['cpu_server_1'], pb_file_path + 'savemodel')
+                # Returns the Tensor with the given name
+                # 名称都为'{name}:0'格式
+                x = sess.graph.get_tensor_by_name('x:0')
+                y = sess.graph.get_tensor_by_name('y:0')
+                cnn_ops = sess.graph.get_tensor_by_name('cnn_ops:0')
+                gru_ops = sess.graph.get_tensor_by_name('gru_ops:0')
+
             # 训练100000个epoch
             for epoch in range(100000):
 
@@ -287,6 +299,23 @@ def stacking_first_main():
 
             # 关闭摘要
             summary_writer.close()
+
+            #存储计算图为pb格式
+            # Replaces all the variables in a graph with constants of the same values
+            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['op_to_store'])
+            # 写入序列化的pb文件
+            with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
+                f.write(constant_graph.SerializeToString())
+
+            # Builds the SavedModel protocol buffer and saves variables and assets
+            # 在和project相同层级目录下产生带有savemodel名称的文件夹
+            builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel')
+            # Adds the current meta graph to the SavedModel and saves variables
+            # 第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
+            builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
+            # Writes a SavedModel protocol buffer to disk
+            # 此处p值为生成的文件夹路径
+            p = builder.save()
 
             ################################对训练集数据进行次级特征预测##########################
             # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]

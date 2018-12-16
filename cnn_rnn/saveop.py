@@ -21,7 +21,9 @@ x = tf.placeholder(tf.int32, name= 'x')
 y = tf.placeholder(tf.int32, name= 'y')
 b = tf.Variable(1, name= 'b')
 xy = x * y
-op = tf.add(xy, b, name= 'op_to_store')
+op_1 = tf.add(xy, b, name= 'op_to_store_1')
+op_2 = tf.add(op_1, tf.Variable(3, name= 'b_2'), name= 'op_to_store')
+op = op_2
 init = tf.global_variables_initializer()
 
 with tf.Session() as sess:

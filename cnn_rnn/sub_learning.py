@@ -35,7 +35,7 @@ def stacking_CNN(x, arg_dict, keep_prob):
             keep_prob = 0.8
         fcnn = FCNN(fc1_input, keep_prob)
         fc = fcnn.per_layer(arg_dict['wd1'], arg_dict['bd1'])
-        out = fcnn.per_layer(arg_dict['wd2'], arg_dict['bd2'], param= fc)
+        out = fcnn.per_layer(arg_dict['wd2'], arg_dict['bd2'], param= fc, name= 'cnn_ops')
 
     return out
 
@@ -70,7 +70,7 @@ def stacking_GRU(x, num_units, arg_dict):
     with tf.name_scope('fc'):
         fcnn = FCNN(result, keep_prob=1.0)
         net_1 = fcnn.per_layer(arg_dict['w_1'], arg_dict['b_1'])
-        net_2 = fcnn.per_layer(arg_dict['w_2'], arg_dict['b_2'], param= net_1)
+        net_2 = fcnn.per_layer(arg_dict['w_2'], arg_dict['b_2'], param= net_1, name= 'gru_ops')
     return net_2
 
 def stacking_FC(x, arg_dict):

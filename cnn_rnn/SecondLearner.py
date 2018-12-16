@@ -132,8 +132,14 @@ def stacking_second_main():
                 while not coord.should_stop():  # 如果线程应该停止则返回True
                     #批量读取次级学习器训练集特征和标签数据
                     tr_feature_batch, tr_target_batch = sess.run(train_feature_batch, train_target_batch)
-                    _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
-                    print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+                    _ = sess.run(fc_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                    if not (epoch % 1000):
+                        loss_fc = sess.run(fc_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                        print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+
+
+                    # _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
+                    # print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
                     test_steps -= 1
                     if test_steps <= 0:
