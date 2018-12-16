@@ -9,12 +9,11 @@
 @time: 2018/12/5 21:51
 @desc:
 '''
-
 import tensorflow as tf
 import numpy as np
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 from cnn_rnn.Fmake2read import FileoOperation
-from cnn_rnn.Sub_learning import stacking_CNN, stacking_GRU, stacking_FC
+from cnn_rnn.sub_learning import stacking_CNN, stacking_GRU, stacking_FC
 import pickle
 import os.path
 import time

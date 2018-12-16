@@ -15,7 +15,7 @@ import numpy as np
 from cnn_rnn.FirstLearner import variable_summaries, sub_LossOptimize
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 from cnn_rnn.Fmake2read import FileoOperation
-from cnn_rnn.Sub_learning import stacking_CNN, stacking_GRU, stacking_FC
+from cnn_rnn.sub_learning import stacking_CNN, stacking_GRU, stacking_FC
 import time
 
 def stacking_second_main():
