@@ -158,7 +158,6 @@ def stacking_first_main():
         variable_summaries(cnn_weights['wd2'], 'wd2')
         variable_summaries(cnn_weights['bd2'], 'bd2')
 
-
     #定义CNN类对象用以对数据Tensor进行改变形状
     cnn = CNN()
     #将每个样本特征向量由一维转化为二维shape= [batch_size, h, v, 1],原始数据有24个特征，转化为4*6维'picture'特征输入卷积神经网络
