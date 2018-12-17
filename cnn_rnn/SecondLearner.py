@@ -143,20 +143,25 @@ def stacking_second_main():
                 # 批量读取次级学习器训练集特征和标签数据
                 tr_feature_batch, tr_target_batch = sess.run(train_feature_batch, train_target_batch)
                 _ = sess.run(fc_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                if not (epoch % 100):
+                if not (train_steps % 5):
                     loss_fc = sess.run(fc_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
                     print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
-                # _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
-                # print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+                    #对测试集进行acc（loss）计算
+                    test_steps = 2
+                    for i in range(test_steps):
+                        # 批量读取次级学习器测试集特征和标签数据
+                        te_feature_batch, te_target_batch = sess.run(test_feature_batch, test_target_batch)
+                        loss_fc = sess.run(fc_loss, feed_dict={x: te_feature_batch, y: te_target_batch})
+                        #对每个批次的测绘集数据进行输出
+                        print('FC次级学习器预测损失在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
-                train_steps += 1
-
-                # 在train_steps为5的倍数时更新
-                if train_steps % 5 == 0:
+                else:
+                    #在train_steps为5的倍数时更新
                     epoch += 1
 
-                if train_steps > 5*5*loop:
+                train_steps += 1
+                if train_steps > 5*loop:
                     coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
         except tf.errors.OutOfRangeError:
@@ -168,34 +173,9 @@ def stacking_second_main():
             coord.join(threads)
 
             # summary_writer.add_summary(summary, epoch)
-
-
-
-
-            #更新线程调配器
-            coord, threads = coord_threads(sess= sess)
-
-            try:
-                while not coord.should_stop():  # 如果线程应该停止则返回True
-                    #批量读取次级学习器测试集特征和标签数据
-                    te_feature_batch, te_target_batch = sess.run(test_feature_batch, test_target_batch)
-                    loss_fc = sess.run(fc_loss, feed_dict= {x: tr_feature_batch, y: tr_target_batch})
-                    print('FC次级学习器预测损失在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
-
-                    test_steps -= 1
-                    if test_steps <= 0:
-                        coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
-
-            except tf.errors.OutOfRangeError:
-                print('第 %s 轮测试结束' % epoch)
-            finally:
-                # When done, ask the threads to stop. 请求该线程停止
-                coord.request_stop()
-                # And wait for them to actually do it. 等待被指定的线程终止
-                coord.join(threads)
-
         # 关闭摘要
         # summary_writer.close()
+
 
 if __name__ == '__main__':
     stacking_second_main()

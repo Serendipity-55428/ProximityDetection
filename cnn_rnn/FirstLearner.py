@@ -80,10 +80,10 @@ def stacking_first_main():
     tr_ttype = tf.float64
     tr_fshape = 24
     tr_tshape = 1
-    tr_batch_size = 40
+    tr_batch_size = 80
     tr_capacity = 400 + 40 * 40
     tr_batch_fun = tf.train.batch
-    tr_batch_step = 4
+    tr_batch_step = 1
     tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtrain.tfrecords-*'
 
     #测试集数据所需参数
@@ -96,10 +96,10 @@ def stacking_first_main():
     te_ttype = tf.float64
     te_fshape = 24
     te_tshape = 1
-    te_batch_size = 40
+    te_batch_size = 80
     te_capacity = 400 + 40 * 40
     te_batch_fun = tf.train.batch
-    te_batch_step = 4
+    te_batch_step = 1
     te_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtest.tfrecords-*'
 
     with tf.name_scope('data_batch'):
@@ -107,7 +107,6 @@ def stacking_first_main():
         train_fileoperation = FileoOperation(tr_p_in, tr_filename, tr_read_in_fun, tr_num_shards, tr_instance_per_shard,
                                              tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity,
                                              tr_batch_fun, tr_batch_step)
-
         train_fileoperation.file2TFRecord()
 
         train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
@@ -116,7 +115,6 @@ def stacking_first_main():
         test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
                                             te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
                                             te_batch_fun, te_batch_step)
-
         test_fileoperation.file2TFRecord()
 
         test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files)
@@ -187,18 +185,22 @@ def stacking_first_main():
         gru_optimize, gru_loss = sub_LossOptimize(gru_ops, y, optimize_function=tf.train.RMSPropOptimizer,
                                                   learning_rate= 1e-4)
 
-    train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证，该参数设置为4（5折，计数从0开始）
-    test_steps = te_batch_step  # 子学习器中测试集分批次预测
+    train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
+    #交叉检验折数
+    fold = 1
+    #循环训练次数和总轮数
+    epoch, loop = 1, 1000
+
     # 初级学习器预测得到的两个特征进行组合后作为次级学习器的特征向量，起始值为空
     super_tr_feature = np.array(None)
     # 初级学习器读取文件中训练集标签直接传到次级学习器中，起始值为空
     super_tr_target_batch_all = np.array(None)
-    # 测试样本经过初级学习器预测后得到两个特征组合为次级学习器所需特征向量，起始值为空
-    super_te_feature = np.array(None)
     # 测试样本标签在初级学习器读取文件后直接传到次级学习器中，起始值为空
     super_te_target_batch_all = np.array(None)
     # 得到的次级学习器测试集特征取5次平均值
     super_te_feature_ave = np.array(None)
+
+
 
     # 摘要汇总
     # merged = tf.summary.merge_all()
@@ -213,180 +215,168 @@ def stacking_first_main():
         sess.run(init)
         # 摘要文件
         # summary_writer = tf.summary.FileWriter('logs/', sess.graph)
+        # coord, threads = train_fileoperation.coord_threads(sess=sess)
+        # 线程调配管理器
+        coord = tf.train.Coordinator()
+        # Starts all queue runners collected in the graph.
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-        #训练集5折，每折分别作为测试样本
-        for group in range(5):
-
-            #导入前一次训练保存的计算图
-            if group:
-                # Loads the model from a SavedModel as specified by tags
-                tf.saved_model.loader.load(sess, ['cpu_server_1'], pb_file_path + 'savemodel')
-                # Returns the Tensor with the given name
-                # 名称都为'{name}:0'格式
-                x = sess.graph.get_tensor_by_name('x:0')
-                y = sess.graph.get_tensor_by_name('y:0')
-                cnn_ops = sess.graph.get_tensor_by_name('cnn_ops:0')
-                gru_ops = sess.graph.get_tensor_by_name('gru_ops:0')
-
-            # 训练100000个epoch
-            for epoch in range(100):
-
-                coord, threads = train_fileoperation.coord_threads(sess= sess)
-                # 线程调配管理器
-                # coord = tf.train.Coordinator()
-                # # Starts all queue runners collected in the graph.
-                # threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-                # summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
-                try:
-                    while not coord.should_stop():  # 如果线程应该停止则返回True
-                        tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
-                        # print(cur_feature_batch, cur_target_batch)
-                        if not train_steps != (4 - group):
-                            #######################
-                            #读入后20个特征
-                            _ = sess.run(cnn_optimize, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
-                            _ = sess.run(gru_optimize, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
-                            if not (epoch % 1000):
-                                loss_cnn = sess.run(cnn_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
-                                loss_gru = sess.run(gru_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
-                                print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
-                                print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
-
-                            #######################
-                            #######################
-                            #读入所有特征
-                            # _, loss_cnn = sess.run([cnn_optimize, cnn_loss],
-                            #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                            # print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
-                            # _, loss_gru = sess.run([gru_optimize, gru_loss],
-                            #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                            # print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
-                            #######################
-                        elif not epoch: #循环训练时只需在第一次提取训练集中待预测批次
-                            #将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
-                            cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
-
-                        train_steps -= 1
-                        if train_steps <= 0:
-                            coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
-
-                except tf.errors.OutOfRangeError:
-                    print('第 %s 轮, 将训练集第 %s 折作为测试样本' % (epoch, group))
-                finally:
-                    # When done, ask the threads to stop. 请求该线程停止
-                    coord.request_stop()
-                    # And wait for them to actually do it. 等待被指定的线程终止
-                    coord.join(threads)
-
-                    # summary_writer.add_summary(summary, epoch)
-
-                    # 重置训练批次数为最大
-                    train_steps = tr_batch_step
+        # summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
+        try:
+            while not coord.should_stop():  # 如果线程应该停止则返回True
+                tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
+                # print(tr_feature_batch, tr_target_batch)
+                if (train_steps % 5) != fold:
+                    #######################
+                    # 读入后20个特征
+                    _ = sess.run(cnn_optimize, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                    _ = sess.run(gru_optimize, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                    #######################
+                    #######################
+                    # 读入所有特征
+                    # _, loss_cnn = sess.run([cnn_optimize, cnn_loss],
+                    #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                    # print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
+                    # _, loss_gru = sess.run([gru_optimize, gru_loss],
+                    #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                    # print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                    #######################
+                elif (train_steps == ((fold-1) * 5 * loop + fold)):  # 循环训练时只需在第一次提取训练集中待预测批次
+                    # 将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
+                    cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
 
                 if not (epoch % 100):
-                    #对1折测试集输出均方差
-                    loss_cnn_test = sess.run(cnn_loss, feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
-                    loss_gru_test = sess.run(gru_loss, feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
-                    print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn_test))
-                    print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
+                    loss_cnn = sess.run(cnn_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                    loss_gru = sess.run(gru_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+                    print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
+                    print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+
+                    # 对1折测试集输出均方差
+                    loss_cnn_test = sess.run(cnn_loss,
+                                             feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
+                    loss_gru_test = sess.run(gru_loss,
+                                             feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
+                    print('---CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn_test))
+                    print('---GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
+
+                train_steps += 1
+                #在一次五折交叉验证循环loop次后更新fold值
+                if not (train_steps % (5 * loop)):
+                    fold += 1
+
+                    ################################对训练集数据进行次级特征预测##########################
+                    # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]
+                    ######################
+                    # 读入后20个特征
+                    predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops],
+                                                        feed_dict={x: cross_tr_feature_batch[:, 4:]})
+
+                    # (读入后20个特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
+                    super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5])) \
+                        if super_tr_feature.any() == None else \
+                        np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5]))))
+                    print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
+                    ######################
+                    ######################
+                    # 读入全部特征
+                    # predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch})
+
+                    # # (读入全部特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
+                    # super_tr_feature = np.hstack((predict_cnn, predict_gru)) if super_tr_feature.any() == None else \
+                    #     np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru))))
+                    #####################
+
+                    # 组合标签得到次级学习器训练集标签矩阵（需要存储至新文件）
+                    super_tr_target_batch_all = super_tr_target_batch if super_tr_target_batch_all.any() == None else \
+                        np.vstack((super_tr_target_batch_all, super_tr_target_batch))
+
+                    ############################对测试集数据进行初级预测得到次级特征#########################
+                    # test_steps 为测试集按照每个批次和训练集相同大小时一共分几组读入
+                    test_steps = 2
+
+                    # 测试样本经过初级学习器预测后得到两个特征组合为次级学习器所需特征向量，起始值为空
+                    super_te_feature = np.array(None)
+
+                    for i in range(test_steps):
+                        # 读取测试集一个批次的特征和标签
+                        te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
+
+                        # 对原始测试集应用训练好的两个子学习器做两个次级学习器所需特征预测，并组合为特征向量
+                        #######################
+                        # 读入后20个特征情况
+                        te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops],
+                                                                      feed_dict={x: te_feature_batch[:, 4:]})
+
+                        # (读入后20个特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
+                        super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :5])) \
+                            if super_te_feature.any() == None else np.vstack((super_te_feature,
+                                                                              np.hstack((te_sufeature_cnn,
+                                                                                         te_sufeature_gru,
+                                                                                         te_feature_batch[:, :5]))))
+                        #######################
+                        #######################
+                        # 读入所有特征情况
+                        # te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch})
+                        #
+                        # # (读入所有特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
+                        # super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru)) if super_te_feature.any() == None else \
+                        #     np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru))))
+                        #######################
+
+                        if fold == 2:
+                            # 组合标签得到次级学习器测试集标签矩阵（需要存储至新文件）
+                            super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == None else \
+                                np.vstack((super_te_target_batch_all, te_target_batch))
+
+
+                    # 次级学习器测试集特征矩阵，递归取平均（需要存储至新文件）
+                    super_te_feature_ave = super_te_feature if super_te_feature_ave.any() == None else \
+                        ((fold - 1) * super_te_feature_ave + super_te_feature) / fold
+
+
+
+                # 在train_steps为5的倍数时更新
+                if train_steps % 5 == 0:
+                    epoch += 1
+
+                #fold更新至5且最后一次五折交叉验证完成后请求所有线程结束
+                if train_steps > 5*5*loop:
+                    coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
+
+        except tf.errors.OutOfRangeError:
+            print('初级学习器训练结束!')
+        finally:
+            # When done, ask the threads to stop. 请求该线程停止
+            coord.request_stop()
+            # And wait for them to actually do it. 等待被指定的线程终止
+            coord.join(threads)
+
+            # summary_writer.add_summary(summary, epoch)
 
             # 关闭摘要
             # summary_writer.close()
 
             #存储计算图为pb格式
             # Replaces all the variables in a graph with constants of the same values
-            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['op_to_store'])
+            # constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['op_to_store'])
             # 写入序列化的pb文件
-            with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
-                f.write(constant_graph.SerializeToString())
+            # with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
+            #     f.write(constant_graph.SerializeToString())
 
             # Builds the SavedModel protocol buffer and saves variables and assets
             # 在和project相同层级目录下产生带有savemodel名称的文件夹
-            builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel')
+            # builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel')
             # Adds the current meta graph to the SavedModel and saves variables
             # 第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
-            builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
+            # builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
             # Writes a SavedModel protocol buffer to disk
             # 此处p值为生成的文件夹路径
-            p = builder.save()
+            # p = builder.save()
 
-            ################################对训练集数据进行次级特征预测##########################
-            # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]
-            ######################
-            #读入后20个特征
-            predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch[:, 4:]})
-
-            # (读入后20个特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
-            super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5])) if super_tr_feature.any() == None else \
-                np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5]))))
-            ######################
-            ######################
-            #读入全部特征
-            # predict_cnn, predict_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: cross_tr_feature_batch})
-
-            # # (读入全部特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
-            # super_tr_feature = np.hstack((predict_cnn, predict_gru)) if super_tr_feature.any() == None else \
-            #     np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru))))
-            #####################
-
-            # 组合标签得到次级学习器训练集标签矩阵（需要存储至新文件）
-            super_tr_target_batch_all = super_tr_target_batch if super_tr_target_batch_all.any() == None else \
-                np.vstack((super_tr_target_batch_all, super_tr_target_batch))
-
-            ############################对测试集数据进行初级预测得到次级特征#########################
-
-            coord, threads = test_fileoperation.coord_threads(sess= sess)
-
-            try:
-                while not coord.should_stop():  # 如果线程应该停止则返回True
-                    #读取测试集一个批次的特征和标签
-                    te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
-
-                    # 对原始测试集应用训练好的两个子学习器做两个次级学习器所需特征预测，并组合为特征向量
-                    #######################
-                    # 读入后20个特征情况
-                    te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch[:, 4:]})
-
-                    # (读入所有特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
-                    super_te_feature = np.hstack(
-                        (te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :5])) if super_te_feature.any() == None else \
-                        np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :5]))))
-                    #######################
-                    #######################
-                    #读入所有特征情况
-                    # te_sufeature_cnn, te_sufeature_gru = sess.run([cnn_ops, gru_ops], feed_dict={x: te_feature_batch})
-                    #
-                    # # (读入所有特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
-                    # super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru)) if super_te_feature.any() == None else \
-                    #     np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru))))
-                    #######################
-
-                    # 组合标签得到次级学习器测试集标签矩阵（需要存储至新文件）
-                    super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == None else \
-                        np.vstack((super_te_target_batch_all, te_target_batch))
-
-                    test_steps -= 1
-                    if test_steps <= 0:
-                        coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
-
-            except tf.errors.OutOfRangeError:
-                print('第 %s 轮测试集数据全部加载完成!' % group)
-            finally:
-                # When done, ask the threads to stop. 请求该线程停止
-                coord.request_stop()
-                # And wait for them to actually do it. 等待被指定的线程终止
-                coord.join(threads)
-
-                # 次级学习器测试集特征矩阵，递归取平均（需要存储至新文件）
-                super_te_feature_ave = super_te_feature if group == 0 else \
-                    (group * super_te_feature_ave + super_te_feature) / (group + 1)
-
-                # 重置预测批次数为最大
-                test_steps = te_batch_step
 
     #将次级学习器训练集和测试集特征和标签合并存入各自的文件
     train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
+    print(super_te_feature_ave.shape, super_te_target_batch_all.shape)
     test_database = np.hstack((super_te_feature_ave, super_te_target_batch_all))
     #文件路径
     p_train = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TRAIN.pickle'
@@ -401,7 +391,6 @@ def fun(p):
     '''不对数据做任何处理'''
     return np.arange(400*24, dtype= np.float64).reshape(400, 24), np.arange(400, dtype= np.float64)
 
+
 if __name__ == '__main__':
     stacking_first_main()
-
-
