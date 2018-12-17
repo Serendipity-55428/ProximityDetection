@@ -85,7 +85,6 @@ def stacking_first_main():
     tr_batch_fun = tf.train.batch
     tr_batch_step = 4
     tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtrain.tfrecords-*'
-    tr_num_epochs = 5000000
 
     #测试集数据所需参数
     te_p_in = 0
@@ -102,7 +101,6 @@ def stacking_first_main():
     te_batch_fun = tf.train.batch
     te_batch_step = 4
     te_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtest.tfrecords-*'
-    te_num_epochs= 5000000
 
     with tf.name_scope('data_batch'):
         # 定义读取训练集数据对象
@@ -110,14 +108,18 @@ def stacking_first_main():
                                              tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity,
                                              tr_batch_fun, tr_batch_step)
 
-        train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files, num_epochs=tr_num_epochs)
+        train_fileoperation.file2TFRecord()
+
+        train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
 
         # 定义读取测试集数据对象
         test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
                                             te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
                                             te_batch_fun, te_batch_step)
 
-        test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files, num_epochs=te_num_epochs)
+        test_fileoperation.file2TFRecord()
+
+        test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files)
 
     with tf.name_scope('x-y'):
         # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
@@ -227,7 +229,7 @@ def stacking_first_main():
                 gru_ops = sess.graph.get_tensor_by_name('gru_ops:0')
 
             # 训练100000个epoch
-            for epoch in range(100000):
+            for epoch in range(100):
 
                 coord, threads = train_fileoperation.coord_threads(sess= sess)
                 # 线程调配管理器
@@ -397,7 +399,7 @@ def stacking_first_main():
 
 def fun(p):
     '''不对数据做任何处理'''
-    return np.arange(400*24).reshape(400, 24), np.arange(400)
+    return np.arange(400*24, dtype= np.float64).reshape(400, 24), np.arange(400, dtype= np.float64)
 
 if __name__ == '__main__':
     stacking_first_main()

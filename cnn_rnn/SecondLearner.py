@@ -17,6 +17,18 @@ from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 from cnn_rnn.Fmake2read import FileoOperation
 from cnn_rnn.sub_learning import stacking_CNN, stacking_GRU, stacking_FC
 import time
+import pickle
+
+def LoadFile(p):
+    '''读取文件'''
+    data = np.array([0])
+    try:
+        with open(p, 'rb') as file:
+            data = pickle.load(file)
+    except:
+        print('文件不存在!')
+    finally:
+        return data[:, :7], data[:, -1]
 
 def stacking_second_main():
     '''
@@ -25,38 +37,36 @@ def stacking_second_main():
     :return: None
     '''
     # 训练集数据所需参数
-    tr_p_in = None
-    tr_filename = None
-    tr_read_in_fun = None
-    tr_num_shards = None
-    tr_instance_per_shard = None
-    tr_ftype = None
-    tr_ttype = None
-    tr_fshape = None
-    tr_tshape = None
-    tr_batch_size = None
-    tr_capacity = None
-    tr_batch_fun = None
-    tr_batch_step = None
-    tr_files = None
-    tr_num_epochs = None
+    tr_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TRAIN.pickle'
+    tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\train.tfrecords-%.5d-of-%.5d'
+    tr_read_in_fun = LoadFile
+    tr_num_shards = 5
+    tr_instance_per_shard = 80
+    tr_ftype = tf.float64
+    tr_ttype = tf.float64
+    tr_fshape = 6
+    tr_tshape = 1
+    tr_batch_size = 80
+    tr_capacity = 400 + 40 * 40
+    tr_batch_fun = tf.train.batch
+    tr_batch_step = 1
+    tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\train.tfrecords-*'
 
     # 测试集数据所需参数
-    te_p_in = None
-    te_filename = None
-    te_read_in_fun = None
-    te_num_shards = None
-    te_instance_per_shard = None
-    te_ftype = None
-    te_ttype = None
-    te_fshape = None
-    te_tshape = None
-    te_batch_size = None
-    te_capacity = None
-    te_batch_fun = None
-    te_batch_step = None
-    te_files = None
-    te_num_epochs = None
+    te_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TEST.pickle'
+    te_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\test.tfrecords-%.5d-of-%.5d'
+    te_read_in_fun = LoadFile
+    te_num_shards = 5
+    te_instance_per_shard = 80
+    te_ftype = tf.float64
+    te_ttype = tf.float64
+    te_fshape = 6
+    te_tshape = 1
+    te_batch_size = 80
+    te_capacity = 400 + 40 * 40
+    te_batch_fun = tf.train.batch
+    te_batch_step = 1
+    te_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\test.tfrecords-*'
 
     with tf.name_scope('data_batch'):
         # 定义读取训练集数据对象
@@ -64,14 +74,14 @@ def stacking_second_main():
                                              tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity,
                                              tr_batch_fun, tr_batch_step)
 
-        train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files, num_epochs=tr_num_epochs)
+        train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
 
         # 定义读取测试集数据对象
         test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
                                             te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
                                             te_batch_fun, te_batch_step)
 
-        test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files, num_epochs=te_num_epochs)
+        test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files)
 
     with tf.name_scope('x-y'):
         # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
@@ -105,6 +115,12 @@ def stacking_second_main():
         fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer,
                                                 learning_rate=1e-4)
 
+    train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
+    # 交叉检验折数
+    fold = 1
+    # 循环训练次数和总轮数
+    epoch, loop = 1, 1000
+
     # 摘要汇总
     # merged = tf.summary.merge_all()
 
@@ -121,37 +137,40 @@ def stacking_second_main():
         # 线程调配管理器
         coord, threads = coord_threads(sess= sess)
 
-        train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证，该参数设置为4（5折，计数从0开始）
-        test_steps = te_batch_step  # 子学习器中测试集分批次预测
+        # summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+        try:
+            while not coord.should_stop():  # 如果线程应该停止则返回True
+                # 批量读取次级学习器训练集特征和标签数据
+                tr_feature_batch, tr_target_batch = sess.run(train_feature_batch, train_target_batch)
+                _ = sess.run(fc_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                if not (epoch % 100):
+                    loss_fc = sess.run(fc_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                    print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
-        for epoch in range(100000):
-            # summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
-            try:
-                while not coord.should_stop():  # 如果线程应该停止则返回True
-                    #批量读取次级学习器训练集特征和标签数据
-                    tr_feature_batch, tr_target_batch = sess.run(train_feature_batch, train_target_batch)
-                    _ = sess.run(fc_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                    if not (epoch % 1000):
-                        loss_fc = sess.run(fc_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                        print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+                # _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
+                # print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+
+                train_steps += 1
+
+                # 在train_steps为5的倍数时更新
+                if train_steps % 5 == 0:
+                    epoch += 1
+
+                if train_steps > 5*5*loop:
+                    coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
+
+        except tf.errors.OutOfRangeError:
+            print('次级训练器训练结束!')
+        finally:
+            # When done, ask the threads to stop. 请求该线程停止
+            coord.request_stop()
+            # And wait for them to actually do it. 等待被指定的线程终止
+            coord.join(threads)
+
+            # summary_writer.add_summary(summary, epoch)
 
 
-                    # _, loss_fc = sess.run([fc_optimize, fc_loss], feed_dict= {x: tr_feature_batch, y: tr_target_batch})
-                    # print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
-                    train_steps -= 1
-                    if train_steps <= 0:
-                        coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
-
-            except tf.errors.OutOfRangeError:
-                print('第 %s 轮训练结束' % epoch)
-            finally:
-                # When done, ask the threads to stop. 请求该线程停止
-                coord.request_stop()
-                # And wait for them to actually do it. 等待被指定的线程终止
-                coord.join(threads)
-
-                # summary_writer.add_summary(summary, epoch)
 
             #更新线程调配器
             coord, threads = coord_threads(sess= sess)

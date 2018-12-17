@@ -60,6 +60,19 @@ class FileoOperation:
         '''
         return tf.train.Feature(bytes_list=tf.train.BytesList(value=[values]))
 
+    @staticmethod
+    def coord_threads(sess):
+        '''
+        生成线程调配管理器和线程队列
+        :param sess: 会话参数
+        :return: coord, threads
+        '''
+        # 线程调配管理器
+        coord = tf.train.Coordinator()
+        # Starts all queue runners collected in the graph.
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        return coord, threads
+
     def __init__(self, p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,
                  batch_size, capacity, batch_fun, batch_step, min_after_dequeue = 0):
         '''
@@ -99,19 +112,6 @@ class FileoOperation:
         self.__batch_fun = batch_fun
         self.__batch_step = batch_step
 
-    @staticmethod
-    def coord_threads(sess):
-        '''
-        生成线程调配管理器和线程队列
-        :param sess: 会话参数
-        :return: coord, threads
-        '''
-        # 线程调配管理器
-        coord = tf.train.Coordinator()
-        # Starts all queue runners collected in the graph.
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-        return coord, threads
-
     def file2TFRecord(self):
         '''将数据写入多个TFRecord文件中'''
         for i in range(self.__num_shards):
@@ -134,12 +134,12 @@ class FileoOperation:
                 writer.write(example.SerializeToString())
             writer.close()
 
-    def ParseDequeue(self, files, num_epochs):
+    def ParseDequeue(self, files, num_epochs= None):
         '''
         解析所有TFRecord文件并按照自行选择的方式处理并出队
         参数files为tf.train.match_filenames_once函数中参数pattern：匹配各个文件前部分的正则表达式
         :param files: 正则表达式，所有分文件的文件名前面相同部分
-        :param num_epochs: 当一个输入队列中的所有文件都被处理完后，会将初始化时提供的文件列表中的文件全部冲新加入队列。
+        :param num_epochs: (默认为None)当一个输入队列中的所有文件都被处理完后，会将初始化时提供的文件列表中的文件全部冲新加入队列。
                            num_epochs用于限制加载初始文件列表的最大轮数
         :return: 一个batch的特征矩阵和标签向量
         '''
@@ -189,55 +189,60 @@ class FileoOperation:
         return feature_batch, target_batch
 
 
-    def testfun(self, files, num_epochs):
+    def testfun(self, files_1, files_2, num_epochs= None):
         '''
         用于对解析后的数据进行测试
         :param files: ParseDequeue函数所需参数
-        :param num_epochs: ParseDequeue函数所需参数
+        :param num_epochs: (默认为None)ParseDequeue函数所需参数
         :return: 多线程生成特征矩阵和标签向量
         '''
-        for i in range(2):
-            feature_batch, target_batch = self.ParseDequeue(files, num_epochs=num_epochs)
-            with tf.Session() as sess:
-                # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
-                sess.run(tf.local_variables_initializer())
-                # sess.run(tf.global_variables_initializer())
 
-                # # 线程调配管理器
-                # coord = tf.train.Coordinator()
-                # # Starts all queue runners collected in the graph.
-                # threads = tf.train.start_queue_runners(sess=sess, coord= coord)
+        feature_batch, target_batch = self.ParseDequeue(files_1)
+        feature_batch_1, target_batch_1 = self.ParseDequeue(files_2)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
+        with tf.Session(config=tf.ConfigProto(gpu_options= gpu_options)) as sess:
+            # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
+            sess.run(tf.local_variables_initializer())
+            sess.run(tf.global_variables_initializer())
 
-                coord, threads = FileoOperation.coord_threads(sess=sess)
+            # # 线程调配管理器
+            # coord = tf.train.Coordinator()
+            # # Starts all queue runners collected in the graph.
+            # threads = tf.train.start_queue_runners(sess=sess, coord= coord)
 
-                # 获取并打印组合之后的样例
-                # 由于tf.train。match_filenames_once函数机制:
-                # The returned operation is a dequeue operation and will throw
-                # tf.errors.OutOfRangeError if the input queue is exhausted.If
-                # this operation is feeding another input queue, its queue runner
-                # will catch this exception, however, if this operation is used
-                # in your main thread you are responsible for catching this yourself.
-                # 故需要在循环读取时及时捕捉异常
-                train_steps = self.__batch_step
-                try:
-                    while not coord.should_stop():  # 如果线程应该停止则返回True
-                        cur_feature_batch, cur_target_batch = sess.run([feature_batch, target_batch])
-                        print(cur_feature_batch, cur_target_batch)
+            # coord, threads = FileoOperation.coord_threads(sess=sess)
+            # 线程调配管理器
+            coord = tf.train.Coordinator()
+            # Starts all queue runners collected in the graph.
+            threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-                        train_steps -= 1
-                        if train_steps <= 0:
-                            coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
+            # 获取并打印组合之后的样例
+            # 由于tf.train。match_filenames_once函数机制:
+            # The returned operation is a dequeue operation and will throw
+            # tf.errors.OutOfRangeError if the input queue is exhausted.If
+            # this operation is feeding another input queue, its queue runner
+            # will catch this exception, however, if this operation is used
+            # in your main thread you are responsible for catching this yourself.
+            # 故需要在循环读取时及时捕捉异常
+            train_steps = self.__batch_step
+            try:
+                while not coord.should_stop():  # 如果线程应该停止则返回True
+                    cur_feature_batch, cur_target_batch = sess.run([feature_batch, target_batch])
+                    cur_feature_batch_1, cur_target_batch_1 = sess.run([feature_batch_1, target_batch_1])
+                    print(cur_feature_batch, cur_target_batch, '第一个线程', cur_target_batch.shape)
+                    print(cur_feature_batch_1, cur_target_batch_1, '第二个线程', cur_target_batch_1.shape)
 
-                except tf.errors.OutOfRangeError:
-                    print('Done training epoch limit reached')
-                finally:
-                    # When done, ask the threads to stop. 请求该线程停止
-                    coord.request_stop()
-                    # And wait for them to actually do it. 等待被指定的线程终止
-                    coord.join(threads)
-                    train_steps = self.__batch_step
+                    train_steps -= 1
+                    if train_steps <= 0:
+                        coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
-
+            except tf.errors.OutOfRangeError:
+                print('Done training epoch limit reached')
+            finally:
+                # When done, ask the threads to stop. 请求该线程停止
+                coord.request_stop()
+                # And wait for them to actually do it. 等待被指定的线程终止
+                coord.join(threads)
 
 
 if __name__ == '__main__':
@@ -256,14 +261,30 @@ if __name__ == '__main__':
     read_in_fun = Excel2Numpy
     ftype, ttype = tf.float64, tf.float64
     fshape, tshape = [4], [1]
-    batch_size = 40
+    batch_size = 80
     capacity = 400 + 40 * batch_size
     batch_fun = tf.train.batch
-    batch_step = 1
+    batch_step = 2
 
     fileop = FileoOperation(p_in, filename, read_in_fun, num_shards, instance_per_shard, ftype, ttype, fshape, tshape,
                  batch_size, capacity, batch_fun, batch_step)
     fileop.file2TFRecord()
-    # feature_batch, target_batch = fileop.ParseDequeue(r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\output.tfrecords-*', num_epochs= 2)
+
+    filename1 = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\output2.tfrecords-%.5d-of-%.5d'
+    num_shards1 = 4
+    instance_per_shard1 = 100
+    read_in_fun1 = Excel2Numpy
+    ftype1, ttype1 = tf.float64, tf.float64
+    fshape1, tshape1 = [4], [1]
+    batch_size1 = 30
+    capacity1 = 400 + 40 * batch_size
+    batch_fun1 = tf.train.batch
+    batch_step = 2
+
+    fileop_1 = FileoOperation(p_in, filename1, read_in_fun1, num_shards1, instance_per_shard1, ftype1, ttype1, fshape1, tshape1,
+                 batch_size1, capacity1, batch_fun1, batch_step)
+    fileop_1.file2TFRecord()
+    # feature_batch, target_batch = fileop.ParseDequeue(r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\output.tfrecords-*')
     # print(feature_batch)
-    fileop.testfun(r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\output.tfrecords-*', num_epochs= 100)
+    fileop.testfun(r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\output.tfrecords-*',
+                   r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\output2.tfrecords-*')

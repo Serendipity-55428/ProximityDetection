@@ -13,8 +13,8 @@
 import tensorflow as tf
 import numpy as np
 
-x = tf.placeholder(dtype= tf.float32, shape= [4, 20])
-y = tf.placeholder(dtype= tf.float32, shape= [4])
+# x = tf.placeholder(dtype= tf.float32, shape= [4, 20])
+# y = tf.placeholder(dtype= tf.float32, shape= [4])
 #定义LSTMCell实例对象
 # cell = tf.nn.rnn_cell.LSTMCell(num_units= 128) #设置隐藏层h大小
 # #print <tensorflow.python.ops.rnn_cell_impl.LSTMCell object at 0x00000150CB5DAF60>
@@ -32,30 +32,30 @@ y = tf.placeholder(dtype= tf.float32, shape= [4])
 # # print(h1.h.shape) # (4, 128)
 # # print(h1.c.shape) # (4, 128)
 #
-inputs = tf.reshape(x, [-1, 5, 4])
+# inputs = tf.reshape(x, [-1, 5, 4])
 #因为tf.nn.dynamic_rnn函数中的inputs参数接收的数据维度格式为: [batch_size, max_time, depth],
 #所以需要在中间加入max_time维度，该维度意思为循环次数。
 # initial_state = cell.zero_state(4, tf.float32)
 # outputs, state = tf.nn.dynamic_rnn(cell, inputs, initial_state= initial_state)
 
 #多层LSTM神经网络
-def get_a_cell():
-    return tf.nn.rnn_cell.GRUCell(num_units= 128)
+# def get_a_cell():
+#     return tf.nn.rnn_cell.GRUCell(num_units= 128)
     # return tf.nn.rnn_cell.LSTMCell(num_units=128)
 
-cell = get_a_cell()
-cells = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.DropoutWrapper(get_a_cell(), input_keep_prob= 1.0, output_keep_prob= 0.8) for _ in range(3)])
-output_m, state_m = tf.nn.dynamic_rnn(cells, inputs, initial_state= cells.zero_state(4, tf.float32))
+# cell = get_a_cell()
+# cells = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.DropoutWrapper(get_a_cell(), input_keep_prob= 1.0, output_keep_prob= 0.8) for _ in range(3)])
+# output_m, state_m = tf.nn.dynamic_rnn(cells, inputs, initial_state= cells.zero_state(4, tf.float32))
 # output, state = tf.nn.dynamic_rnn(cell, inputs, initial_state= cell.zero_state(4, tf.float32))
 # 'outputs' is a tensor of shape [batch_size, max_time, cell_state_size]
 #state_m = (h, c) h is a tensor of shape [batch_size, cell_state_size], c is a tensor of shape h
 
 #双向神经网络
-cell_fw = get_a_cell()
-cell_bw = get_a_cell()
-outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, \
-                                                         inputs, initial_state_fw= cell_fw.zero_state(4, tf.float32),\
-                                                         initial_state_bw= cell_bw.zero_state(4, tf.float32))
+# cell_fw = get_a_cell()
+# cell_bw = get_a_cell()
+# outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, \
+#                                                          inputs, initial_state_fw= cell_fw.zero_state(4, tf.float32),\
+#                                                          initial_state_bw= cell_bw.zero_state(4, tf.float32))
 # output_1 = tf.concat([outputs[0], outputs[-1]], -1)
 # output_1 = tf.reshape(tf.concat(output_1, 2), [4, -1]) #4*50
 # output_2 = tf.matmul(state_m, tf.Variable(tf.truncated_normal([128, 1], dtype= tf.float32))) + tf.Variable([1], dtype= tf.float32)
@@ -74,17 +74,18 @@ if __name__ == '__main__':
         #                                                   y: np.arange(4, dtype= np.float32)})
         #     print(loss_s)
 
-  for e in [3, 2, 1, 0]:
-      try:
-          a = 1 / e
-          b = 2
-      except:
-          pass
-      finally:
-          c = 6
+    def fun(e):
+        return e
 
-      d = b
-      print(d)
+    def fun_1(e):
+        return fun(e)
+
+    a = fun_1(2)
+    b = fun_1(2)
+    print(a is b)
+
+
+
 
 
 
