@@ -59,15 +59,14 @@ class RecurrentNeuralNetwork:
     @staticmethod
     def reshapex(x, max_time):
         '''
-        :param x: ndarray
+        :param x: Variable
         :param max_time: 最大循环次数
-        :return: Variable, x.shape= [x.shape[0], max_time, x.shape[-1]/max_time]
+        :return: Variable, x.shape= [x.get_shape().as_list()[0], max_time, x.get_shape().as_list()[-1]/max_time]
         '''
-        shape = x.shape
-        batch_size = x.shape[0]
-        depth = int(x.shape[-1] / max_time)
-        x_Tensor = tf.Variable(x.reshape(batch_size, max_time, depth)) if type(x) == np.ndarray \
-            else tf.reshape(x, shape= [batch_size, max_time, depth])
+        shape = x.get_shape().as_list()
+        batch_size = shape[0]
+        depth = int(shape[-1] / max_time)
+        x_Tensor = tf.reshape(x, shape= [batch_size, max_time, depth])
 
         return x_Tensor, shape
 
@@ -218,7 +217,7 @@ class CNN:
         :return: 转换后的数据， shape= (batch_size, den_2, den_3)
         '''
         #Tensor无法被做任何改变，需要先转换为Variable类型
-        x = tf.Variable(x)
+        # x = tf.Variable(x)
         x = tf.reshape(x, [x.get_shape().as_list()[0], den_2, den_3, 1])
         return x
 

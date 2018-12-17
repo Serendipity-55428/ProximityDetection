@@ -60,18 +60,6 @@ def sub_LossOptimize(net, target, optimize_function, learning_rate):
         optimize = optimize_function(learning_rate= learning_rate).minimize(loss)
     return optimize, loss
 
-def coord_threads(sess):
-    '''
-    生成线程调配管理器和线程队列
-    :param sess: 会话参数
-    :return: coord, threads
-    '''
-    # 线程调配管理器
-    coord = tf.train.Coordinator()
-    # Starts all queue runners collected in the graph.
-    threads = tf.train.start_queue_runners(sess= sess, coord= coord)
-    return coord, threads
-
 def stacking_first_main():
     '''
     stacking策略初级学习器训练和交叉预测
@@ -133,7 +121,7 @@ def stacking_first_main():
 
     with tf.name_scope('x-y'):
         # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
-        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape])
+        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape-4])
         y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape])
 
     ############################CNN############################
@@ -162,11 +150,11 @@ def stacking_first_main():
     #定义CNN类对象用以对数据Tensor进行改变形状
     cnn = CNN()
     #将每个样本特征向量由一维转化为二维shape= [batch_size, h, v, 1],原始数据有24个特征，转化为4*6维'picture'特征输入卷积神经网络
-    x = cnn.d_one2d_two(x, 4, 6)
+    x_cnn = cnn.d_one2d_two(x, 5, 4)
 
     with tf.name_scope('cnn_ops'):
         # 输出单个值的Variable
-        cnn_ops = stacking_CNN(x= x, arg_dict= cnn_weights, keep_prob= 1.0)
+        cnn_ops = stacking_CNN(x= x_cnn, arg_dict= cnn_weights, keep_prob= 1.0)
 
     with tf.name_scope('cnn_optimize-loss'):
         # 定义CNN自学习器的损失函数和优化器
@@ -190,7 +178,7 @@ def stacking_first_main():
 
     with tf.name_scope('gru_ops'):
         # 定义多层GRU的最终输出ops
-        gru_ops = stacking_GRU(x= tf.Session().run(x), num_units= 256, arg_dict=gru_weights)
+        gru_ops = stacking_GRU(x= x, num_units= 256, arg_dict=gru_weights)
 
     with tf.name_scope('gru_optimize-loss'):
         # 定义GRU自学习器的损失函数和优化器
@@ -241,7 +229,11 @@ def stacking_first_main():
             # 训练100000个epoch
             for epoch in range(100000):
 
-                coord, threads = coord_threads(sess= sess)
+                coord, threads = train_fileoperation.coord_threads(sess= sess)
+                # 线程调配管理器
+                # coord = tf.train.Coordinator()
+                # # Starts all queue runners collected in the graph.
+                # threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
                 # summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
                 try:
@@ -342,7 +334,7 @@ def stacking_first_main():
 
             ############################对测试集数据进行初级预测得到次级特征#########################
 
-            coord, threads = coord_threads(sess= sess)
+            coord, threads = test_fileoperation.coord_threads(sess= sess)
 
             try:
                 while not coord.should_stop():  # 如果线程应该停止则返回True

@@ -92,8 +92,9 @@ def main_1():
 
     x = np.arange(80, dtype= np.float32).reshape(4, 20)
     y = np.arange(4, dtype= np.float32)
+    x_T = tf.placeholder(dtype=tf.float32, shape=[4, 20])
     y_T = tf.placeholder(dtype= tf.float32, shape= [4])
-    net_1, net_2 = SAlstm(x, num_units= 256, arg_dict= arg_dict)
+    net_1, net_2 = SAlstm(x_T, num_units= 256, arg_dict= arg_dict)
     with tf.name_scope('loss-optimize'):
         loss = tf.reduce_mean(tf.square(net_2 - y_T))
         tf.summary.scalar('loss', loss)
@@ -108,8 +109,8 @@ def main_1():
         # 摘要文件
         summary_writer = tf.summary.FileWriter('logs/', sess.graph)
         for  i in range(1000):
-            summary = sess.run(merged, feed_dict= {y_T: y})
-            _, loss_s = sess.run([optimize, loss], feed_dict= {y_T: y})
+            summary = sess.run(merged, feed_dict= {x_T: x, y_T: y})
+            _, loss_s = sess.run([optimize, loss], feed_dict= {x_T: x, y_T: y})
             print(loss_s)
             # 添加摘要
             summary_writer.add_summary(summary, i)
@@ -197,8 +198,9 @@ def main_2():
     # print(data.shape)
     # x = data[:, :-1]
     # y = data[:, -1]
+    x_T = tf.placeholder(dtype= tf.float32, shape= [4, 20])
     y_T = tf.placeholder(dtype= tf.float32, shape= [4])
-    net_1 = MUlstm(x, num_units= 256, arg_dict= arg_dict)
+    net_1 = MUlstm(x_T, num_units= 256, arg_dict= arg_dict)
 
     with tf.name_scope('loss-optimize'):
         loss = tf.reduce_mean(tf.square(net_1 - y_T))
@@ -215,8 +217,8 @@ def main_2():
         summary_writer = tf.summary.FileWriter('logs/', sess.graph)
         start = time.time()
         for  i in range(10000):
-            summary = sess.run(merged, feed_dict={y_T: y})
-            _, loss_s = sess.run([optimize, loss], feed_dict= {y_T: y})
+            summary = sess.run(merged, feed_dict={x_T: x, y_T: y})
+            _, loss_s = sess.run([optimize, loss], feed_dict= {x_T: x, y_T: y})
             print(loss_s)
             summary_writer.add_summary(summary, i)
         stop = time.time()
