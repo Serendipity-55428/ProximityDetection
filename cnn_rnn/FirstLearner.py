@@ -287,7 +287,8 @@ def stacking_first_main():
                     super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4])) \
                         if super_tr_feature.any() == None else \
                         np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4]))))
-                    print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
+                    if fold < 5:
+                        print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
                     ######################
                     ######################
                     # 读入全部特征
@@ -390,16 +391,16 @@ def stacking_first_main():
             print('节点名称分别为: ' + '{cnn_name}'.format(cnn_name=cnn_ops.op.name) + '  '
                                        '{gru_name}'.format(gru_name=gru_ops.op.name))
 
-    #将次级学习器训练集和测试集特征和标签合并存入各自的文件
-    print(super_tr_feature.shape, super_tr_target_batch_all.shape)
-    train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
-    print(super_te_feature_ave.shape, super_te_target_batch_all.shape)
-    test_database = np.hstack((super_te_feature_ave, super_te_target_batch_all))
-    #文件路径
-    p_train = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TRAIN.pickle'
-    p_test = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TEST.pickle'
-    SaveFile(train_database, p_train)
-    SaveFile(test_database, p_test)
+            # 将次级学习器训练集和测试集特征和标签合并存入各自的文件
+            print(super_tr_feature.shape, super_tr_target_batch_all.shape)
+            train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
+            print(super_te_feature_ave.shape, super_te_target_batch_all.shape)
+            test_database = np.hstack((super_te_feature_ave, super_te_target_batch_all))
+            # 文件路径
+            p_train = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TRAIN.pickle'
+            p_test = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TEST.pickle'
+            SaveFile(train_database, p_train)
+            SaveFile(test_database, p_test)
 
 def fun_1(p):
     '''不对数据做任何处理'''
