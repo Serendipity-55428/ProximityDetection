@@ -138,14 +138,14 @@ def stacking_first_main():
             'bd2': tf.Variable(tf.truncated_normal([1], mean=0, stddev=1.0), dtype=tf.float32)
         }
 
-        # variable_summaries(cnn_weights['wc1'], 'wc1')
-        # variable_summaries(cnn_weights['wc2'], 'wc2')
-        # variable_summaries(cnn_weights['bc1'], 'bc1')
-        # variable_summaries(cnn_weights['bc2'], 'bc2')
-        # variable_summaries(cnn_weights['wd1'], 'wd1')
-        # variable_summaries(cnn_weights['bd1'], 'bd1')
-        # variable_summaries(cnn_weights['wd2'], 'wd2')
-        # variable_summaries(cnn_weights['bd2'], 'bd2')
+        variable_summaries(cnn_weights['wc1'], 'wc1')
+        variable_summaries(cnn_weights['wc2'], 'wc2')
+        variable_summaries(cnn_weights['bc1'], 'bc1')
+        variable_summaries(cnn_weights['bc2'], 'bc2')
+        variable_summaries(cnn_weights['wd1'], 'wd1')
+        variable_summaries(cnn_weights['bd1'], 'bd1')
+        variable_summaries(cnn_weights['wd2'], 'wd2')
+        variable_summaries(cnn_weights['bd2'], 'bd2')
 
     #定义CNN类对象用以对数据Tensor进行改变形状
     cnn = CNN()
@@ -159,6 +159,7 @@ def stacking_first_main():
     with tf.name_scope('cnn_optimize-loss'):
         # 定义CNN自学习器的损失函数和优化器
         cnn_optimize, cnn_loss = sub_LossOptimize(cnn_ops, y, optimize_function= tf.train.RMSPropOptimizer, learning_rate= 1e-4)
+        tf.summary.scalar('cnn_loss', cnn_loss)
 
     ##############################RNN##############################
     #定义GRU子学习器中全连接层参数矩阵以及偏置量尺寸
@@ -173,12 +174,12 @@ def stacking_first_main():
             'b_3': tf.Variable(tf.truncated_normal([1], mean= 0, stddev= 1.0), dtype= tf.float32)
         }
 
-        # variable_summaries(gru_weights['w_1'], 'w_1')
-        # variable_summaries(gru_weights['w_2'], 'w_2')
-        # variable_summaries(gru_weights['w_3'], 'w_3')
-        # variable_summaries(gru_weights['b_1'], 'b_1')
-        # variable_summaries(gru_weights['b_2'], 'b_2')
-        # variable_summaries(gru_weights['b_3'], 'b_3')
+        variable_summaries(gru_weights['w_1'], 'w_1')
+        variable_summaries(gru_weights['w_2'], 'w_2')
+        variable_summaries(gru_weights['w_3'], 'w_3')
+        variable_summaries(gru_weights['b_1'], 'b_1')
+        variable_summaries(gru_weights['b_2'], 'b_2')
+        variable_summaries(gru_weights['b_3'], 'b_3')
 
     with tf.name_scope('gru_ops'):
         # 定义多层GRU的最终输出ops(待保存计算节点)
@@ -188,6 +189,7 @@ def stacking_first_main():
         # 定义GRU自学习器的损失函数和优化器
         gru_optimize, gru_loss = sub_LossOptimize(gru_ops, y, optimize_function=tf.train.RMSPropOptimizer,
                                                   learning_rate= 1e-4)
+        tf.summary.scalar('gru_loss', gru_loss)
 
     train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
     #交叉检验折数
@@ -207,7 +209,7 @@ def stacking_first_main():
 
 
     # 摘要汇总
-    # merged = tf.summary.merge_all()
+    merged = tf.summary.merge_all()
 
     init = tf.global_variables_initializer()
 
@@ -217,19 +219,24 @@ def stacking_first_main():
         # 在使用tf.train。match_filenames_once函数时需要初始化一些变量
         sess.run(tf.local_variables_initializer())
         sess.run(init)
+
         # 摘要文件
-        # summary_writer = tf.summary.FileWriter('logs/', sess.graph)
-        # coord, threads = train_fileoperation.coord_threads(sess=sess)
+        summary_writer = tf.summary.FileWriter('logs/', sess.graph)
+
         # 线程调配管理器
         coord = tf.train.Coordinator()
         # Starts all queue runners collected in the graph.
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-        # summary = sess.run(merged, feed_dict={x: train_feature_batch, y: train_target_batch})
+
         try:
             while not coord.should_stop():  # 如果线程应该停止则返回True
                 tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
+                summary = sess.run(merged, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
+
+                #测试用
                 # print(tr_feature_batch, tr_target_batch)
+
                 if (train_steps % 5) != fold:
                     #######################
                     # 读入后20个特征
@@ -341,6 +348,7 @@ def stacking_first_main():
 
                 # 在train_steps为5的倍数时更新
                 if train_steps % 5 == 0:
+                    summary_writer.add_summary(summary, epoch)
                     epoch += 1
 
                 #fold更新至5且最后一次五折交叉验证完成后请求所有线程结束
@@ -355,17 +363,17 @@ def stacking_first_main():
             # And wait for them to actually do it. 等待被指定的线程终止
             coord.join(threads)
 
-            # summary_writer.add_summary(summary, epoch)
-
             # 关闭摘要
-            # summary_writer.close()
+            summary_writer.close()
 
             # 获取pb文件保存路径前缀
             pb_file_path = os.getcwd()
 
             #存储计算图为pb格式
             # Replaces all the variables in a graph with constants of the same values
-            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['cnn_op', 'gru_op'])
+            constant_graph = graph_util.convert_variables_to_constants(sess,
+                                                                       sess.graph_def, ['{cnn_name}'.format(cnn_name=cnn_ops.op.name),
+                                                                                        '{gru_name}'.format(gru_name=gru_ops.op.name)])
             # 写入序列化的pb文件
             with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
                 f.write(constant_graph.SerializeToString())
@@ -379,7 +387,9 @@ def stacking_first_main():
             # Writes a SavedModel protocol buffer to disk
             # 此处p值为生成的文件夹路径
             p = builder.save()
-            print('cnn和gru两个初级子学习器模型节点保存路径为: ' + p)
+            print('cnn和gru两个初级子学习器模型节点保存路径为: ', p)
+            print('节点名称分别为: ' + '{cnn_name}'.format(cnn_name=cnn_ops.op.name) + '  '
+                                       '{gru_name}'.format(gru_name=gru_ops.op.name))
 
 
     #将次级学习器训练集和测试集特征和标签合并存入各自的文件

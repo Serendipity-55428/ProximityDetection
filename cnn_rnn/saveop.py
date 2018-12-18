@@ -17,24 +17,37 @@ from tensorflow.python.framework import graph_util
 
 pb_file_path = os.getcwd()
 
-x = tf.placeholder(tf.int32, name= 'x')
-y = tf.placeholder(tf.int32, name= 'y')
-b = tf.Variable(1, name= 'b')
-xy = x * y
-op_1 = tf.add(xy, b, name= 'op_to_store_1')
-op_2 = tf.add(op_1, tf.Variable(3, name= 'b_2'), name= 'op_to_store')
-op = op_2
+def fun(x, y, name):
+    with tf.name_scope('opsss'):
+        with tf.name_scope('sec'):
+            x = tf.Variable(x, name='x')
+            y = tf.Variable(y, name='y')
+            b = tf.Variable(1, name='b')
+            xy = x * y
+            op_1 = tf.add(xy, b, name='op_to_store_1')
+            op_2 = tf.add(op_1, tf.Variable(3, name='b_2'), name=name)
+
+
+    return op_2
+
+op_a = fun(2, 3, 'op_1')
+op_b = fun(4, 5, 'op_2')
 init = tf.global_variables_initializer()
+
+print(op_a.op.name, op_b.op.name)
 
 with tf.Session() as sess:
     sess.run(init)
 
     #Replaces all the variables in a graph with constants of the same values
-    constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['op_to_store'])
+    constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['{name}'.format(name=op_a.op.name), '{name}'.format(name=op_b.op.name)])
 
     #测试代码
-    op_out = sess.run(op, feed_dict= {x: 10, y: 3})
-    print(op_out)
+    # a = 10
+    # b = 3
+    op_out = sess.run(op_a)
+    op_out_1 = sess.run(op_b)
+    print(op_out, op_out_1)
 
     #写入序列化的pb文件
     with tf.gfile.FastGFile(pb_file_path + 'model1.pb', mode='wb') as f:

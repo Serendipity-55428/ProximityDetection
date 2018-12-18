@@ -89,8 +89,8 @@ def stacking_second_main():
 
     with tf.name_scope('x-y'):
         # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
-        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape])
-        y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape])
+        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape], name= 'x')
+        y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape], name= 'y')
 
     #############################FC###############################
     # 定义fc次级学习器中全连接层参数
@@ -104,12 +104,12 @@ def stacking_second_main():
             'b_sub_3': tf.Variable(tf.truncated_normal([1], mean=0, stddev=1.0), dtype=tf.float32)
         }
 
-        # variable_summaries(fc_weights['w_sub_1'], 'w_sub_1')
-        # variable_summaries(fc_weights['w_sub_2'], 'w_sub_2')
-        # variable_summaries(fc_weights['w_sub_3'], 'w_sub_3')
-        # variable_summaries(fc_weights['b_sub_1'], 'b_sub_1')
-        # variable_summaries(fc_weights['b_sub_2'], 'b_sub_2')
-        # variable_summaries(fc_weights['b_sub_3'], 'b_sub_3')
+        variable_summaries(fc_weights['w_sub_1'], 'w_sub_1')
+        variable_summaries(fc_weights['w_sub_2'], 'w_sub_2')
+        variable_summaries(fc_weights['w_sub_3'], 'w_sub_3')
+        variable_summaries(fc_weights['b_sub_1'], 'b_sub_1')
+        variable_summaries(fc_weights['b_sub_2'], 'b_sub_2')
+        variable_summaries(fc_weights['b_sub_3'], 'b_sub_3')
 
     with tf.name_scope('fc_ops'):
         # 定义FC次级学习器的最终输出ops(待保存计算节点)
@@ -118,6 +118,7 @@ def stacking_second_main():
         # 定义次级学习器的损失函数和优化器
         fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer,
                                                 learning_rate=1e-4)
+        tf.summary.scalar('fc_loss', fc_loss)
 
     train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
     # 交叉检验折数
@@ -126,7 +127,7 @@ def stacking_second_main():
     epoch, loop = 1, 1000
 
     # 摘要汇总
-    # merged = tf.summary.merge_all()
+    merged = tf.summary.merge_all()
 
     init = tf.global_variables_initializer()
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
@@ -136,18 +137,20 @@ def stacking_second_main():
         sess.run(tf.local_variables_initializer())
 
         # 摘要文件
-        # summary_writer = tf.summary.FileWriter('logs/', sess.graph)
+        summary_writer = tf.summary.FileWriter('logs/', sess.graph)
 
         # 线程调配管理器
         coord = tf.train.Coordinator()
         # Starts all queue runners collected in the graph.
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-        # summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
         try:
             while not coord.should_stop():  # 如果线程应该停止则返回True
                 # 批量读取次级学习器训练集特征和标签数据
                 tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
+
+                summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+
                 _ = sess.run(fc_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
                 if not (train_steps % 5):
                     loss_fc = sess.run(fc_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
@@ -163,6 +166,7 @@ def stacking_second_main():
                         print('FC次级学习器预测损失在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
 
                     # 在train_steps为5的倍数时(5个批次的测试集已经全部读入预测后)更新
+                    summary_writer.add_summary(summary, epoch)
                     epoch += 1
 
                 train_steps += 1
@@ -177,16 +181,16 @@ def stacking_second_main():
             # And wait for them to actually do it. 等待被指定的线程终止
             coord.join(threads)
 
-            # summary_writer.add_summary(summary, epoch)
             # 关闭摘要
-            # summary_writer.close()
+            summary_writer.close()
 
             # 获取pb文件保存路径前缀
             pb_file_path = os.getcwd()
 
             # 存储计算图为pb格式
             # Replaces all the variables in a graph with constants of the same values
-            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['fc_op'])
+            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def,
+                                                                       ['{fc_name}'.format(fc_name=fc_ops.op.name)])
             # 写入序列化的pb文件
             with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
                 f.write(constant_graph.SerializeToString())
@@ -200,7 +204,8 @@ def stacking_second_main():
             # Writes a SavedModel protocol buffer to disk
             # 此处p值为生成的文件夹路径
             p = builder.save()
-            print('fc次级子学习器模型节点保存路径为: ' + p)
+            print('fc次级子学习器模型节点保存路径为: ', p)
+            print('节点名称为: ' + '{cnn_name}'.format(cnn_name=fc_ops.op.name))
 
 
 if __name__ == '__main__':

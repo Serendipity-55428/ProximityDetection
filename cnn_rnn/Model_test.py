@@ -29,13 +29,13 @@ with tf.Session(config= tf.ConfigProto(gpu_options= gpu_options), graph= g1) as 
 
     # Returns the Tensor with the given name
     # 名称都为'{output_name}: output_index'格式
-    x = sess.graph.get_tensor_by_name('x:0')
+    x = sess.graph.get_tensor_by_name('x-y/x:0')
     # y = sess.graph.get_tensor_by_name('y:0')
-    cnn_op = sess.graph.get_tensor_by_name('cnn_op')
-    gru_op = sess.graph.get_tensor_by_name('gru_op')
+    cnn_op = sess.graph.get_tensor_by_name('cnn_ops/fc_layer/cnn_op/mul:0')
+    gru_op = sess.graph.get_tensor_by_name('gru_ops/fc/Relu_2:0')
 
     #读入的数据需要用户自行输入
-    input = np.arange(24, dtype= np.float32)
+    input = np.arange(80*24, dtype= np.float32).reshape(80, 24)
     predict_cnn, predict_gru = sess.run([cnn_op, gru_op], feed_dict={x: input[:, 4:]})
     #初级学习器输出特征（需要输入次级学习器）
     pri_input = np.hstack((input[:, :4], predict_cnn, predict_gru))
@@ -55,7 +55,8 @@ with tf.Session(config= tf.ConfigProto(gpu_options= gpu_options), graph= g2) as 
 
     # Returns the Tensor with the given name
     # 名称都为'{output_name}: output_index'格式
-    fc_op = sess.graph.get_tensor_by_name('fc_op')
+    x = sess.graph.get_tensor_by_name('x-y/x:0')
+    fc_op = sess.graph.get_tensor_by_name('fc_ops/Relu_2:0')
 
     #输出最优半径预测值
     r = sess.run(fc_op, feed_dict= {x: sec_input})
