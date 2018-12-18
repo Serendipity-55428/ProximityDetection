@@ -131,7 +131,7 @@ class FCNN:
     '''
     全连接神经网络及其所需参数
     '''
-    __slots__ = ('__x', '__y', '__keep_prob')
+    __slots__ = ('__x', '__keep_prob')
 
     def __init__(self, x, keep_prob= 1.0):
         '''

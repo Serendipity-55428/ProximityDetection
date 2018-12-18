@@ -73,7 +73,7 @@ def stacking_first_main():
     #训练集数据所需参数
     tr_p_in = 0
     tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtrain.tfrecords-%.5d-of-%.5d'
-    tr_read_in_fun = fun
+    tr_read_in_fun = fun_1
     tr_num_shards = 5
     tr_instance_per_shard = 80
     tr_ftype = tf.float64
@@ -89,9 +89,9 @@ def stacking_first_main():
     #测试集数据所需参数
     te_p_in = 0
     te_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\outputtest.tfrecords-%.5d-of-%.5d'
-    te_read_in_fun = fun
+    te_read_in_fun = fun_2
     te_num_shards = 5
-    te_instance_per_shard = 80
+    te_instance_per_shard = 32
     te_ftype = tf.float64
     te_ttype = tf.float64
     te_fshape = 24
@@ -168,13 +168,17 @@ def stacking_first_main():
         # 256为GRU网络最终输出的隐藏层结点数量
             'w_2': tf.Variable(tf.truncated_normal([128, 64], mean=0, stddev=1.0), dtype=tf.float32),
             'b_1': tf.Variable(tf.truncated_normal([128], mean=0, stddev=1.0), dtype=tf.float32),
-            'b_2': tf.Variable(tf.truncated_normal([64], mean=0, stddev=1.0), dtype=tf.float32)
+            'b_2': tf.Variable(tf.truncated_normal([64], mean=0, stddev=1.0), dtype=tf.float32),
+            'w_3': tf.Variable(tf.truncated_normal([64, 1], mean= 0, stddev= 1.0), dtype= tf.float32),
+            'b_3': tf.Variable(tf.truncated_normal([1], mean= 0, stddev= 1.0), dtype= tf.float32)
         }
 
         # variable_summaries(gru_weights['w_1'], 'w_1')
         # variable_summaries(gru_weights['w_2'], 'w_2')
+        # variable_summaries(gru_weights['w_3'], 'w_3')
         # variable_summaries(gru_weights['b_1'], 'b_1')
         # variable_summaries(gru_weights['b_2'], 'b_2')
+        # variable_summaries(gru_weights['b_3'], 'b_3')
 
     with tf.name_scope('gru_ops'):
         # 定义多层GRU的最终输出ops
@@ -256,8 +260,8 @@ def stacking_first_main():
                                              feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
                     loss_gru_test = sess.run(gru_loss,
                                              feed_dict={x: cross_tr_feature_batch[:, 4:], y: super_tr_target_batch})
-                    print('---CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn_test))
-                    print('---GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
+                    print('---CNN子学习器损失函数（acc）在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn_test))
+                    print('---GRU子学习器损失函数（acc）在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
 
                 train_steps += 1
                 #在一次五折交叉验证循环loop次后更新fold值
@@ -272,9 +276,9 @@ def stacking_first_main():
                                                         feed_dict={x: cross_tr_feature_batch[:, 4:]})
 
                     # (读入后20个特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
-                    super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5])) \
+                    super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4])) \
                         if super_tr_feature.any() == None else \
-                        np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :5]))))
+                        np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4]))))
                     print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
                     ######################
                     ######################
@@ -308,11 +312,11 @@ def stacking_first_main():
                                                                       feed_dict={x: te_feature_batch[:, 4:]})
 
                         # (读入后20个特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
-                        super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :5])) \
+                        super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :4])) \
                             if super_te_feature.any() == None else np.vstack((super_te_feature,
                                                                               np.hstack((te_sufeature_cnn,
                                                                                          te_sufeature_gru,
-                                                                                         te_feature_batch[:, :5]))))
+                                                                                         te_feature_batch[:, :4]))))
                         #######################
                         #######################
                         # 读入所有特征情况
@@ -375,6 +379,7 @@ def stacking_first_main():
 
 
     #将次级学习器训练集和测试集特征和标签合并存入各自的文件
+    print(super_tr_feature.shape, super_tr_target_batch_all.shape)
     train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
     print(super_te_feature_ave.shape, super_te_target_batch_all.shape)
     test_database = np.hstack((super_te_feature_ave, super_te_target_batch_all))
@@ -387,9 +392,13 @@ def stacking_first_main():
     # 关闭摘要
     # summary_writer.close()
 
-def fun(p):
+def fun_1(p):
     '''不对数据做任何处理'''
     return np.arange(400*24, dtype= np.float64).reshape(400, 24), np.arange(400, dtype= np.float64)
+
+def fun_2(p):
+    '''不对数据做任何处理'''
+    return np.arange(160*24, dtype= np.float64).reshape(160, 24), np.arange(160, dtype= np.float64)
 
 
 if __name__ == '__main__':

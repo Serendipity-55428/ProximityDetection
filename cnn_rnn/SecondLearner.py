@@ -12,7 +12,7 @@
 
 import tensorflow as tf
 import numpy as np
-from cnn_rnn.FirstLearner import variable_summaries, sub_LossOptimize, coord_threads
+from cnn_rnn.FirstLearner import variable_summaries, sub_LossOptimize
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 from cnn_rnn.Fmake2read import FileoOperation
 from cnn_rnn.sub_learning import stacking_CNN, stacking_GRU, stacking_FC
@@ -28,7 +28,7 @@ def LoadFile(p):
     except:
         print('文件不存在!')
     finally:
-        return data[:, :7], data[:, -1]
+        return data[:, :6], data[:, -1]
 
 def stacking_second_main():
     '''
@@ -57,7 +57,7 @@ def stacking_second_main():
     te_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\test.tfrecords-%.5d-of-%.5d'
     te_read_in_fun = LoadFile
     te_num_shards = 5
-    te_instance_per_shard = 80
+    te_instance_per_shard = 32
     te_ftype = tf.float64
     te_ttype = tf.float64
     te_fshape = 6
@@ -73,6 +73,7 @@ def stacking_second_main():
         train_fileoperation = FileoOperation(tr_p_in, tr_filename, tr_read_in_fun, tr_num_shards, tr_instance_per_shard,
                                              tr_ftype, tr_ttype, tr_fshape, tr_tshape, tr_batch_size, tr_capacity,
                                              tr_batch_fun, tr_batch_step)
+        train_fileoperation.file2TFRecord()
 
         train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
 
@@ -80,6 +81,7 @@ def stacking_second_main():
         test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
                                             te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
                                             te_batch_fun, te_batch_step)
+        test_fileoperation.file2TFRecord()
 
         test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files)
 
@@ -92,7 +94,7 @@ def stacking_second_main():
     # 定义fc次级学习器中全连接层参数
     with tf.name_scope('fc_weights'):
         fc_weights = {
-            'w_sub_1': tf.Variable(tf.truncated_normal([2, 128], mean=0, stddev=1.0), dtype=tf.float32),
+            'w_sub_1': tf.Variable(tf.truncated_normal([6, 128], mean=0, stddev=1.0), dtype=tf.float32),
             'w_sub_2': tf.Variable(tf.truncated_normal([128, 64], mean=0, stddev=1.0), dtype=tf.float32),
             'w_sub_3': tf.Variable(tf.truncated_normal([64, 1], mean=0, stddev=1.0), dtype=tf.float32),
             'b_sub_1': tf.Variable(tf.truncated_normal([128], mean=0, stddev=1.0), dtype=tf.float32),
@@ -135,13 +137,15 @@ def stacking_second_main():
         # summary_writer = tf.summary.FileWriter('logs/', sess.graph)
 
         # 线程调配管理器
-        coord, threads = coord_threads(sess= sess)
+        coord = tf.train.Coordinator()
+        # Starts all queue runners collected in the graph.
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
         # summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
         try:
             while not coord.should_stop():  # 如果线程应该停止则返回True
                 # 批量读取次级学习器训练集特征和标签数据
-                tr_feature_batch, tr_target_batch = sess.run(train_feature_batch, train_target_batch)
+                tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
                 _ = sess.run(fc_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
                 if not (train_steps % 5):
                     loss_fc = sess.run(fc_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
@@ -151,13 +155,11 @@ def stacking_second_main():
                     test_steps = 2
                     for i in range(test_steps):
                         # 批量读取次级学习器测试集特征和标签数据
-                        te_feature_batch, te_target_batch = sess.run(test_feature_batch, test_target_batch)
+                        te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
                         loss_fc = sess.run(fc_loss, feed_dict={x: te_feature_batch, y: te_target_batch})
                         #对每个批次的测绘集数据进行输出
                         print('FC次级学习器预测损失在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
-
-                else:
-                    #在train_steps为5的倍数时更新
+                    # 在train_steps为5的倍数时更新
                     epoch += 1
 
                 train_steps += 1
@@ -179,6 +181,11 @@ def stacking_second_main():
 
 if __name__ == '__main__':
     stacking_second_main()
+    # tr_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TRAIN.pickle'
+    # te_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TEST.pickle'
+    # data, feature, target = LoadFile(te_p_in)
+    # print(data, data.shape)
+
 
 
 

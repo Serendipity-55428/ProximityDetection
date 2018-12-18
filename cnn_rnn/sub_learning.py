@@ -70,8 +70,9 @@ def stacking_GRU(x, num_units, arg_dict):
     with tf.name_scope('fc'):
         fcnn = FCNN(result, keep_prob=1.0)
         net_1 = fcnn.per_layer(arg_dict['w_1'], arg_dict['b_1'])
-        net_2 = fcnn.per_layer(arg_dict['w_2'], arg_dict['b_2'], param= net_1, name= 'gru_ops')
-    return net_2
+        net_2 = fcnn.per_layer(arg_dict['w_2'], arg_dict['b_2'], param= net_1)
+        out = fcnn.per_layer(arg_dict['w_3'], arg_dict['b_3'], param= net_2, name= 'gru_ops')
+    return out
 
 def stacking_FC(x, arg_dict):
     '''
@@ -81,7 +82,7 @@ def stacking_FC(x, arg_dict):
     :return: 全连接网络输出， shape= [1]
     '''
     #生成FCNN对象
-    fcnn = FCNN(x, arg_dict)
+    fcnn = FCNN(x)
     net_1 = fcnn.per_layer(arg_dict['w_sub_1'], arg_dict['b_sub_1'])
     net_2 = fcnn.per_layer(arg_dict['w_sub_2'], arg_dict['b_sub_2'], param= net_1)
     net_3 = fcnn.per_layer(arg_dict['w_sub_3'], arg_dict['b_sub_3'], param= net_2)
