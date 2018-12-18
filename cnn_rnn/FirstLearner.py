@@ -274,6 +274,7 @@ def stacking_first_main():
                 #在一次五折交叉验证循环loop次后更新fold值
                 if not (train_steps % (5 * loop)):
                     fold += 1
+                    epoch = 1
 
                     ################################对训练集数据进行次级特征预测##########################
                     # 输出特定批次在两个子学习器中的预测值，predict_cnn.shape= predict_gru.shape= [batch_size, 1]
@@ -334,17 +335,15 @@ def stacking_first_main():
                         #     np.vstack((super_tr_feature, np.hstack((te_sufeature_cnn, te_sufeature_gru))))
                         #######################
 
+                        #在第一组训练结束后fold已经变为2
                         if fold == 2:
                             # 组合标签得到次级学习器测试集标签矩阵（需要存储至新文件）
                             super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == None else \
                                 np.vstack((super_te_target_batch_all, te_target_batch))
 
-
                     # 次级学习器测试集特征矩阵，递归取平均（需要存储至新文件）
                     super_te_feature_ave = super_te_feature if super_te_feature_ave.any() == None else \
                         ((fold - 1) * super_te_feature_ave + super_te_feature) / fold
-
-
 
                 # 在train_steps为5的倍数时更新
                 if train_steps % 5 == 0:
@@ -391,7 +390,6 @@ def stacking_first_main():
             print('节点名称分别为: ' + '{cnn_name}'.format(cnn_name=cnn_ops.op.name) + '  '
                                        '{gru_name}'.format(gru_name=gru_ops.op.name))
 
-
     #将次级学习器训练集和测试集特征和标签合并存入各自的文件
     print(super_tr_feature.shape, super_tr_target_batch_all.shape)
     train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
@@ -410,7 +408,6 @@ def fun_1(p):
 def fun_2(p):
     '''不对数据做任何处理'''
     return np.arange(160*24, dtype= np.float64).reshape(160, 24), np.arange(160, dtype= np.float64)
-
 
 if __name__ == '__main__':
     stacking_first_main()
