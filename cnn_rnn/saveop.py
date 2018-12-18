@@ -37,12 +37,12 @@ with tf.Session() as sess:
     print(op_out)
 
     #写入序列化的pb文件
-    with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
+    with tf.gfile.FastGFile(pb_file_path + 'model1.pb', mode='wb') as f:
         f.write(constant_graph.SerializeToString())
 
     #Builds the SavedModel protocol buffer and saves variables and assets
     #在和project相同层级目录下产生带有savemodel名称的文件夹
-    builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel')
+    builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel1')
     #Adds the current meta graph to the SavedModel and saves variables
     #第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
     builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])

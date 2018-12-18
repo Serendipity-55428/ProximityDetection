@@ -15,12 +15,13 @@ import numpy as np
 from cnn_rnn.HyMultiNN import RecurrentNeuralNetwork, FCNN, CNN
 import time
 
-def stacking_CNN(x, arg_dict, keep_prob):
+def stacking_CNN(x, arg_dict, keep_prob, name):
     '''
     stacking策略中CNN子学习器
     :param x: Tensor
     :param arg_dict: cnn和fc所需所有权重和偏置值散列表
     :param keep_prob: dropout参数
+    :param name: 计算节点命名
     :return: 全连接层最后输出一个最优半径值
     '''
     cnn = CNN()
@@ -35,16 +36,17 @@ def stacking_CNN(x, arg_dict, keep_prob):
             keep_prob = 0.8
         fcnn = FCNN(fc1_input, keep_prob)
         fc = fcnn.per_layer(arg_dict['wd1'], arg_dict['bd1'])
-        out = fcnn.per_layer(arg_dict['wd2'], arg_dict['bd2'], param= fc, name= 'cnn_ops')
+        out = fcnn.per_layer(arg_dict['wd2'], arg_dict['bd2'], param= fc, name= name)
 
     return out
 
-def stacking_GRU(x, num_units, arg_dict):
+def stacking_GRU(x, num_units, arg_dict, name):
     '''
     stacking策略中的RNN子学习器
     :param x: type= 'ndarray' / 'Tensor'
     :param num_units: lstm/gru隐层神经元数量
     :param arg_dict: 全连接层权重以及偏置量矩阵散列
+    :param name: 计算节点命名
     :return: MULSTM模型最终输出
     '''
     with tf.name_scope('multi_LSTMorGRU'):
@@ -71,19 +73,20 @@ def stacking_GRU(x, num_units, arg_dict):
         fcnn = FCNN(result, keep_prob=1.0)
         net_1 = fcnn.per_layer(arg_dict['w_1'], arg_dict['b_1'])
         net_2 = fcnn.per_layer(arg_dict['w_2'], arg_dict['b_2'], param= net_1)
-        out = fcnn.per_layer(arg_dict['w_3'], arg_dict['b_3'], param= net_2, name= 'gru_ops')
+        out = fcnn.per_layer(arg_dict['w_3'], arg_dict['b_3'], param= net_2, name= name)
     return out
 
-def stacking_FC(x, arg_dict):
+def stacking_FC(x, arg_dict, name):
     '''
     元学习器为两层全连接层
     :param x: Tensor, 所有子学习器生成的数据集
     :param arg_dict: 权重矩阵以及偏置值散列表
+    :param name: 计算节点命名
     :return: 全连接网络输出， shape= [1]
     '''
     #生成FCNN对象
     fcnn = FCNN(x)
     net_1 = fcnn.per_layer(arg_dict['w_sub_1'], arg_dict['b_sub_1'])
     net_2 = fcnn.per_layer(arg_dict['w_sub_2'], arg_dict['b_sub_2'], param= net_1)
-    net_3 = fcnn.per_layer(arg_dict['w_sub_3'], arg_dict['b_sub_3'], param= net_2)
+    net_3 = fcnn.per_layer(arg_dict['w_sub_3'], arg_dict['b_sub_3'], param= net_2, name= name)
     return net_3

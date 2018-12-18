@@ -121,8 +121,8 @@ def stacking_first_main():
 
     with tf.name_scope('x-y'):
         # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
-        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape-4])
-        y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape])
+        x = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_fshape-4], name= 'x')
+        y = tf.placeholder(dtype=tf.float32, shape=[tr_batch_size, tr_tshape], name= 'y')
 
     ############################CNN############################
     #定义cnn子学习器中卷积核,全连接层参数矩阵以及偏置量尺寸
@@ -153,8 +153,8 @@ def stacking_first_main():
     x_cnn = cnn.d_one2d_two(x, 5, 4)
 
     with tf.name_scope('cnn_ops'):
-        # 输出单个值的Variable
-        cnn_ops = stacking_CNN(x= x_cnn, arg_dict= cnn_weights, keep_prob= 1.0)
+        # 输出单个值的Variable(待保存计算节点)
+        cnn_ops = stacking_CNN(x= x_cnn, arg_dict= cnn_weights, keep_prob= 1.0, name= 'cnn_op')
 
     with tf.name_scope('cnn_optimize-loss'):
         # 定义CNN自学习器的损失函数和优化器
@@ -181,8 +181,8 @@ def stacking_first_main():
         # variable_summaries(gru_weights['b_3'], 'b_3')
 
     with tf.name_scope('gru_ops'):
-        # 定义多层GRU的最终输出ops
-        gru_ops = stacking_GRU(x= x, num_units= 256, arg_dict=gru_weights)
+        # 定义多层GRU的最终输出ops(待保存计算节点)
+        gru_ops = stacking_GRU(x= x, num_units= 256, arg_dict=gru_weights, name= 'gru_op')
 
     with tf.name_scope('gru_optimize-loss'):
         # 定义GRU自学习器的损失函数和优化器
@@ -360,22 +360,26 @@ def stacking_first_main():
             # 关闭摘要
             # summary_writer.close()
 
+            # 获取pb文件保存路径前缀
+            pb_file_path = os.getcwd()
+
             #存储计算图为pb格式
             # Replaces all the variables in a graph with constants of the same values
-            # constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['op_to_store'])
+            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['cnn_op', 'gru_op'])
             # 写入序列化的pb文件
-            # with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
-            #     f.write(constant_graph.SerializeToString())
+            with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
+                f.write(constant_graph.SerializeToString())
 
             # Builds the SavedModel protocol buffer and saves variables and assets
             # 在和project相同层级目录下产生带有savemodel名称的文件夹
-            # builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel')
+            builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'pri_savemodel')
             # Adds the current meta graph to the SavedModel and saves variables
             # 第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
-            # builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
+            builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
             # Writes a SavedModel protocol buffer to disk
             # 此处p值为生成的文件夹路径
-            # p = builder.save()
+            p = builder.save()
+            print('cnn和gru两个初级子学习器模型节点保存路径为: ' + p)
 
 
     #将次级学习器训练集和测试集特征和标签合并存入各自的文件
@@ -388,9 +392,6 @@ def stacking_first_main():
     p_test = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\cnn_rnn\TEST.pickle'
     SaveFile(train_database, p_train)
     SaveFile(test_database, p_test)
-
-    # 关闭摘要
-    # summary_writer.close()
 
 def fun_1(p):
     '''不对数据做任何处理'''

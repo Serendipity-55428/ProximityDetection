@@ -141,18 +141,19 @@ class FCNN:
         self.__x = x
         self.__keep_prob = keep_prob
 
-    def per_layer(self, w, b, param= 'None', name= 'fc_ops'):
+    def per_layer(self, w, b, param= 'None', name= 'op'):
         '''
         构建单层全连接神经网络，并加入dropout技术减轻过拟合
         :param w: 权重矩阵， type= 'ndarray'
         :param b: 激活值， type= 'ndarray'
         :param param: 每次per_layer函数返回的函数值作为per_layer函数的参数循环调用
-        :param name: 模型名称， 默认为‘fc_ops’
+        :param name: 模型名称， 默认为‘op’
         :return: 单层神经元输出
         '''
         layer = tf.matmul(self.__x, w) + b if param == 'None' else tf.matmul(param, w) + b
         layer = tf.nn.relu(layer)
-        return tf.nn.dropout(layer, keep_prob= self.__keep_prob, name= name)
+        layer_add_dropout = tf.nn.dropout(layer, keep_prob= self.__keep_prob, name= name)
+        return layer_add_dropout
 
 class CNN:
     '''

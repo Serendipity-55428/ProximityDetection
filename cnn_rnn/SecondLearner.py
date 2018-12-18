@@ -18,6 +18,8 @@ from cnn_rnn.Fmake2read import FileoOperation
 from cnn_rnn.sub_learning import stacking_CNN, stacking_GRU, stacking_FC
 import time
 import pickle
+import os
+from tensorflow.python.framework import graph_util
 
 def LoadFile(p):
     '''读取文件'''
@@ -110,8 +112,8 @@ def stacking_second_main():
         # variable_summaries(fc_weights['b_sub_3'], 'b_sub_3')
 
     with tf.name_scope('fc_ops'):
-        # 定义FC次级学习器的最终输出ops
-        fc_ops = stacking_FC(x= x, arg_dict= fc_weights)
+        # 定义FC次级学习器的最终输出ops(待保存计算节点)
+        fc_ops = stacking_FC(x= x, arg_dict= fc_weights, name= 'fc_op')
     with tf.name_scope('fc_optimize-loss'):
         # 定义次级学习器的损失函数和优化器
         fc_optimize, fc_loss = sub_LossOptimize(fc_ops, y, optimize_function= tf.train.RMSPropOptimizer,
@@ -159,7 +161,8 @@ def stacking_second_main():
                         loss_fc = sess.run(fc_loss, feed_dict={x: te_feature_batch, y: te_target_batch})
                         #对每个批次的测绘集数据进行输出
                         print('FC次级学习器预测损失在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
-                    # 在train_steps为5的倍数时更新
+
+                    # 在train_steps为5的倍数时(5个批次的测试集已经全部读入预测后)更新
                     epoch += 1
 
                 train_steps += 1
@@ -175,8 +178,29 @@ def stacking_second_main():
             coord.join(threads)
 
             # summary_writer.add_summary(summary, epoch)
-        # 关闭摘要
-        # summary_writer.close()
+            # 关闭摘要
+            # summary_writer.close()
+
+            # 获取pb文件保存路径前缀
+            pb_file_path = os.getcwd()
+
+            # 存储计算图为pb格式
+            # Replaces all the variables in a graph with constants of the same values
+            constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['fc_op'])
+            # 写入序列化的pb文件
+            with tf.gfile.FastGFile(pb_file_path + 'model.pb', mode='wb') as f:
+                f.write(constant_graph.SerializeToString())
+
+            # Builds the SavedModel protocol buffer and saves variables and assets
+            # 在和project相同层级目录下产生带有savemodel名称的文件夹
+            builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'sec_savemodel')
+            # Adds the current meta graph to the SavedModel and saves variables
+            # 第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
+            builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
+            # Writes a SavedModel protocol buffer to disk
+            # 此处p值为生成的文件夹路径
+            p = builder.save()
+            print('fc次级子学习器模型节点保存路径为: ' + p)
 
 
 if __name__ == '__main__':
