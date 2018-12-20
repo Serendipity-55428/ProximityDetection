@@ -192,10 +192,12 @@ def stacking_first_main():
         tf.summary.scalar('gru_loss', gru_loss)
 
     train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
-    #交叉检验折数
+    #交叉检验中将第几折作为测试样本
     fold = 1
     #循环训练次数和总轮数
-    epoch, loop = 1, 1000
+    epoch, loop = 1, 5
+    #记录读入的是第几批次
+    # batch_num = 1
 
     # 初级学习器预测得到的两个特征进行组合后作为次级学习器的特征向量，起始值为空
     super_tr_feature = np.array(None)
@@ -232,6 +234,10 @@ def stacking_first_main():
         try:
             while not coord.should_stop():  # 如果线程应该停止则返回True
                 tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
+                #记录读入第几折
+                # print(batch_num)
+                # batch_num = 1 if batch_num == 5 else (batch_num + 1)
+
                 summary = sess.run(merged, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
 
                 #测试用
@@ -252,11 +258,16 @@ def stacking_first_main():
                     #                        feed_dict={x: tr_feature_batch, y: tr_target_batch})
                     # print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
                     #######################
-                elif (train_steps == ((fold-1) * 5 * loop + fold)):  # 循环训练时只需在第一次提取训练集中待预测批次
+                if (train_steps == ((fold-1) * 5 * loop + fold)):  # 循环训练时只需在第一次提取训练集中待预测批次
                     # 将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
                     cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
 
+                    # 测试代码
+                    print('train_steps: %s, epoch: %s, fold: %s' % (train_steps, epoch, fold))
+                    print(cross_tr_feature_batch, super_tr_target_batch)
+
                 if not (epoch % 100):
+
                     loss_cnn = sess.run(cnn_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
                     loss_gru = sess.run(gru_loss, feed_dict={x: tr_feature_batch[:, 4:], y: tr_target_batch})
                     print('CNN子学习器损失函在第 %s 个epoch的数值为: %s' % (epoch, loss_cnn))
@@ -271,6 +282,7 @@ def stacking_first_main():
                     print('---GRU子学习器损失函数（acc）在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
 
                 train_steps += 1
+
                 #在一次五折交叉验证循环loop次后更新fold值
                 if not (train_steps % (5 * loop)):
                     fold += 1
@@ -287,7 +299,7 @@ def stacking_first_main():
                     super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4])) \
                         if super_tr_feature.any() == None else \
                         np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4]))))
-                    if fold < 5:
+                    if fold <= 5:
                         print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
                     ######################
                     ######################
@@ -393,6 +405,7 @@ def stacking_first_main():
 
             # 将次级学习器训练集和测试集特征和标签合并存入各自的文件
             print(super_tr_feature.shape, super_tr_target_batch_all.shape)
+            print(super_tr_feature)
             train_database = np.hstack((super_tr_feature, super_tr_target_batch_all))
             print(super_te_feature_ave.shape, super_te_target_batch_all.shape)
             test_database = np.hstack((super_te_feature_ave, super_te_target_batch_all))
