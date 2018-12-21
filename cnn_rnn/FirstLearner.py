@@ -191,11 +191,11 @@ def stacking_first_main():
                                                   learning_rate= 1e-4)
         tf.summary.scalar('gru_loss', gru_loss)
 
-    train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
+    train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证时的循环计数变量
     #交叉检验中将第几折作为测试样本
     fold = 1
     #循环训练次数和总轮数
-    epoch, loop = 1, 5
+    epoch, loop = 1, 1000
     #记录读入的是第几批次
     # batch_num = 1
 
@@ -263,8 +263,8 @@ def stacking_first_main():
                     cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
 
                     # 测试代码
-                    print('train_steps: %s, epoch: %s, fold: %s' % (train_steps, epoch, fold))
-                    print(cross_tr_feature_batch, super_tr_target_batch)
+                    # print('train_steps: %s, epoch: %s, fold: %s' % (train_steps, epoch, fold))
+                    # print(cross_tr_feature_batch, super_tr_target_batch)
 
                 if not (epoch % 100):
 

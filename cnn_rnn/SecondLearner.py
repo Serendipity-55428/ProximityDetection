@@ -35,7 +35,6 @@ def LoadFile(p):
 def stacking_second_main():
     '''
     stacking策略次级学习器训练和交叉预测
-    :param files: ParseDequeue函数所需参数
     :return: None
     '''
     # 训练集数据所需参数
@@ -120,9 +119,8 @@ def stacking_second_main():
                                                 learning_rate=1e-4)
         tf.summary.scalar('fc_loss', fc_loss)
 
-    train_steps = tr_batch_step  # 对于stacking策略，使用5折交叉验证
-    # 交叉检验折数
-    fold = 1
+    train_steps = tr_batch_step  # 将所有次级学习器所需要的训练集分5批读入时的总循环计数变量
+
     # 循环训练次数和总轮数
     epoch, loop = 1, 1000
 
@@ -205,7 +203,7 @@ def stacking_second_main():
             # 此处p值为生成的文件夹路径
             p = builder.save()
             print('fc次级子学习器模型节点保存路径为: ', p)
-            print('节点名称为: ' + '{cnn_name}'.format(cnn_name=fc_ops.op.name))
+            print('节点名称为: ' + '{fc_name}'.format(fc_name=fc_ops.op.name))
 
 
 if __name__ == '__main__':
