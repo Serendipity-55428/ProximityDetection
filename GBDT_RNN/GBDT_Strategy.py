@@ -37,17 +37,27 @@ def xgboost_main():
         GBDT_params = {
             'booster': 'gbtree', #所选择的若学习器算法框架
             'objective': 'reg:linear', #所选择的回归损失函数
-            'gamma': 0.1, #
-            'max_depth': 5,
-            'lambda': 3,
-            'subsample': 0.7,
-            'colsample_bytree': 0.7, #
+            'gamma': 0.1, #指定节点分裂所需的最小损失函数下降值
+            'max_depth': 5, #书的最大深度
+            'lambda': 3, #正则化项参数
+            'subsample': 0.7, #控制对于每一棵树随机采样的比例
+            'colsample_bytree': 0.7, #和subsample作用相同
             'min_child_weight': 3., #决定最小叶子节点样本权重和
             'silent': 0, #默认为0，当参数值为1时，静默模式开启，不会输出任何信息
             'eta': 0.1, #控制每一步权重减小的参数0.01-0.2
             'seed': 1000, #随机数种子
             'nthread': 4 #进行多线程控制
         }
+
+        #将数据特征和标签存为DMatrix类型数据
+        dtrain = xgb.DMatrix(train_feature, train_target)
+        #设置集成弱学习器数量(需根据自行设定误差限设定)
+        num_boost_round = 100
+        #构建模型
+        model = xgb.train(params= GBDT_params, dtrain= dtrain,
+                          num_boost_round= num_boost_round)
+
+
 
 
 
