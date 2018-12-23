@@ -73,14 +73,14 @@ print('均方差为: %s' % me_sq)
 
 
 #保存模型
-# model.get_booster().save_model('GBDT.model')
+model.get_booster().save_model('GBDT.model')
 
 #显示重要参数
-# plot_importance(model)
-# plt.show()
+plot_importance(model)
+plt.show()
 
 #加载模型
-# model = xgb.Booster(model_file= 'GBDT.model')
+model = xgb.Booster(model_file= 'GBDT.model')
 
 
 
