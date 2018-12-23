@@ -216,7 +216,7 @@ def main_2():
         # 摘要文件
         summary_writer = tf.summary.FileWriter('logs/', sess.graph)
         start = time.time()
-        for  i in range(10000):
+        for  i in range(10):
             summary = sess.run(merged, feed_dict={x_T: x, y_T: y})
             _, loss_s = sess.run([optimize, loss], feed_dict= {x_T: x, y_T: y})
             print(loss_s)

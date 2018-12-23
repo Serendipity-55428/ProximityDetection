@@ -53,9 +53,31 @@ def xgboost_main():
         dtrain = xgb.DMatrix(train_feature, train_target)
         #设置集成弱学习器数量(需根据自行设定误差限设定)
         num_boost_round = 100
-        #构建模型
+        #构建模型并训练
         model = xgb.train(params= GBDT_params, dtrain= dtrain,
                           num_boost_round= num_boost_round)
+
+        #保存模型
+        model.save_model('GBDT.model')
+        #导出模型和特征映射到txt文件
+        model.dump_model('dump.raw.txt', 'featmap.txt')
+
+        #加载模型
+        #init model
+        model = xgb.Booster({'nthread': 4})
+        #load data
+        model.load_model('model.bin')
+
+        #对测试集预测
+        test_feature, test_target = data_generator()
+        predict_test = model.predict(test_feature)
+
+        #显示重要特征
+        plot_importance(model)
+        plt.show()
+
+
+
 
 
 
