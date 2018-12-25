@@ -39,7 +39,7 @@ def GBDT_main():
     #子学习器个数
     n_estimators = 2
     #设置误差阈值：三个误差评估设置#
-    Threshold = 8
+    Threshold = 200
 
     #生成GBDT模型
     model = XGBRegressor(
@@ -74,7 +74,7 @@ def GBDT_main():
         print('CART树个数: %s, 验证集MSE: %s' % (model.n_estimators, MSE))
 
     #保存模型
-    # model.get_booster().save_model('GBDT.model')
+    model.get_booster().save_model('GBDT.model')
 
     # 显示重要参数
     plot_importance(model)
