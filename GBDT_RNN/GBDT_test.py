@@ -11,11 +11,13 @@
 '''
 
 from matplotlib import pyplot as plt
+import numpy as np
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_squared_error
 from xgboost import XGBRegressor
 from xgboost import plot_importance
+from sklearn import model_selection
 import xgboost as xgb
 import os
 os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin'
@@ -82,32 +84,49 @@ os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin'
 # plt.show()
 
 #加载模型
-model = xgb.Booster(model_file= 'GBDT.model')
-
+# model = xgb.Booster(model_file= 'GBDT.model')
+#
 #载入波士顿房价预测数据集做测试
 boston = datasets.load_boston()
-train_feature, test_feature, train_target, test_target = train_test_split(boston.data, boston.target, test_size= 0.333,
-                                                                          random_state= 42)
+# train_feature, test_feature, train_target, test_target = train_test_split(boston.data, boston.target, test_size= 0.333,
+#                                                                           random_state= 42)
+#
+# #训练数据
+# model.fit(X= train_feature,
+#           y= train_target,
+#
+#           # eval_set= [(test_feature, test_target)], #交叉验证集特征和标签
+#           # early_stopping_rounds= 10, #模型多少次得分基本不变就停止训练
+#           # verbose= True, #是否使用验证集
+#           )
+# #模型预测计算精确度
+# pred_target = model.predict(xgb.DMatrix(test_feature))
+# print(pred_target)
+# ex_var = explained_variance_score(test_target, pred_target) #解释方差：1-(var(y_pred-y)/var(y_pred))
+# print('解释方差为: %s' % ex_var)
+# me_ab = mean_absolute_error(test_target, pred_target) #街区距离
+# print('街区距离为: %s' % me_ab)
+# me_sq = mean_squared_error(test_target, pred_target)
+# print('均方差为: %s' % me_sq)
+#
+# #模型可视化
+# digraph = xgb.to_graphviz(model, num_trees= 4)
+# digraph.format = 'png'
+# digraph.view('./boston_xgb')
 
-#训练数据
-model.fit(X= train_feature,
-          y= train_target,
-          
-          # eval_set= [(test_feature, test_target)], #交叉验证集特征和标签
-          # early_stopping_rounds= 10, #模型多少次得分基本不变就停止训练
-          # verbose= True, #是否使用验证集
-          )
-#模型预测计算精确度
-pred_target = model.predict(xgb.DMatrix(test_feature))
-print(pred_target)
-ex_var = explained_variance_score(test_target, pred_target) #解释方差：1-(var(y_pred-y)/var(y_pred))
-print('解释方差为: %s' % ex_var)
-me_ab = mean_absolute_error(test_target, pred_target) #街区距离
-print('街区距离为: %s' % me_ab)
-me_sq = mean_squared_error(test_target, pred_target)
-print('均方差为: %s' % me_sq)
+#k-fold
+kf = model_selection.KFold(n_splits= 5, shuffle= False, random_state= 32)
+boston_1 = np.hstack((boston.data, boston.target[:, np.newaxis]))
+np.random.shuffle(boston_1)
+for train, test in kf.split(boston_1):
+    train_data, test_data = boston_1[train], boston_1[test]
+    print(test)
 
-#模型可视化
-digraph = xgb.to_graphviz(model, num_trees= 4)
-digraph.format = 'png'
-digraph.view('./boston_xgb')
+for train, test in kf.split(boston_1):
+    train_data, test_data = boston_1[train], boston_1[test]
+    print(test)
+
+# print(boston.target.shape)
+# x = np.hstack((boston.data, boston.target[:, np.newaxis]))
+# print(x.shape)
+# print(type(kf.split(boston_1)))
