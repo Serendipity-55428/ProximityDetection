@@ -116,8 +116,7 @@ def GBDT_main():
     digraph.format = 'png'
     digraph.view('./boston_xgb')
 
-if __name__ == '__main__':
-    GBDT_main()
+if __name__ == '__main__':    GBDT_main()
 
 
 
