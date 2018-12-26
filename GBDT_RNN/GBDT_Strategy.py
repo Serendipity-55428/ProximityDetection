@@ -33,26 +33,42 @@ def SaveFile(data):
         with open(p, 'wb') as file:
             pickle.dump(data, file)
 
+def DataGenerator(data= np.arange(3600*25).reshape(3600, 25)):
+    '''
+    从输入数据中划分得到特征矩阵和标签向量（矩阵）
+    :param data: 待读入数据
+    :return: 特征和标签组合在一起的矩阵
+    '''
+    dataset = data
+    return dataset
+
+def boston_1(boston = datasets.load_boston()):
+    '''载入波士顿房价预测数据集做测试'''
+    boston_1 = np.hstack((boston.data, boston.target[:, np.newaxis]))
+    np.random.shuffle(boston_1)
+    dataset = boston_1
+    return dataset
+
 def GBDT_main():
     '''GBDT主函数'''
 
+    #载入数据
+    # dataset = boston_1()
+    dataset = DataGenerator()
+
+    #画图横纵坐标序列
+    X, Y = [], []
+
     #初始化MSE和交叉验证折数fold
     MSE, fold = 0, 1
-    #生成训练集和交叉验证集
-    ######################################实验数据制作###############################
-    # 载入波士顿房价预测数据集做测试
-    boston = datasets.load_boston()
-    # k-fold对象
-    kf = model_selection.KFold(n_splits=5, shuffle=False, random_state=32)
-
-    boston_1 = np.hstack((boston.data, boston.target[:, np.newaxis]))
-    np.random.shuffle(boston_1)
-    #################################################################################
 
     #子学习器个数
-    n_estimators = 20
+    n_estimators = 1
     #设置误差阈值：三个误差评估设置#
-    Threshold = 20
+    Threshold = 70000000
+
+    # k-fold对象,用于生成训练集和交叉验证集数据
+    kf = model_selection.KFold(n_splits=5, shuffle=False, random_state=32)
 
     #生成GBDT模型
     model = XGBRegressor(
@@ -70,21 +86,19 @@ def GBDT_main():
         random_state=1000,  # 随机种子设定值
     )
 
-    while (MSE > Threshold) or (fold == 1):
+    while 1:
 
         # 定义最终输出的target= target - pre_target,数据维度同target
         fin_GBDT_error_target = np.array(None)
 
-        #如果验证集MSE值大于阈值则将GBDT中弱学习器数量自增1
-        model.n_estimators += 1
-        for train_data_index, cv_data_index in kf.split(boston_1):
+        for train_data_index, cv_data_index in kf.split(dataset):
             #找到对应索引数据
-            train_data, cv_data = boston_1[train_data_index], boston_1[cv_data_index]
+            train_data, cv_data = dataset[train_data_index], dataset[cv_data_index]
             # 训练数据
-            model.fit(X=train_data[:, :-1], y=train_data[:, -1])
+            model.fit(X=train_data[:, :4], y=train_data[:, -1])
 
             # 对验证集进行预测
-            pred_cv = model.predict(cv_data[:, :-1])
+            pred_cv = model.predict(cv_data[:, :4])
 
             #每次对验证集都需要计算误差向量
             fold_error = cv_data[:, -1] - pred_cv
@@ -96,10 +110,19 @@ def GBDT_main():
             fold += 1
 
         print('CART树个数: %s, 验证集MSE: %s' % (model.n_estimators, MSE))
+        X = [1] if X == [] else X + [X[-1] + 1]
+        Y.append(MSE)
+        if MSE < Threshold:
+            break
+        else:
+            MSE, fold = 0, 1
+            # 如果验证集MSE值大于阈值则将GBDT中弱学习器数量自增1
+            model.n_estimators += 1
 
-    print(fin_GBDT_error_target, fin_GBDT_error_target.shape)
+    # print(fin_GBDT_error_target, fin_GBDT_error_target.shape)
+    # print(X)
     ###################################实验数据需要修改###############################
-    data = np.hstack((boston_1[:, :-1], fin_GBDT_error_target[:, np.newaxis]))
+    data = np.hstack((dataset[:, 4:-1], fin_GBDT_error_target[:, np.newaxis]))
     #################################################################################
     print(data.shape)
     SaveFile(data)
@@ -107,8 +130,9 @@ def GBDT_main():
     #保存模型
     model.get_booster().save_model('GBDT.model')
 
-    # 显示重要参数
-    plot_importance(model)
+    # 显示重要参数以及验证集误差随学习器个数的变化曲线
+    plt.plot(X, Y)
+    # plot_importance(model)
     plt.show()
 
     # 模型可视化
@@ -116,7 +140,8 @@ def GBDT_main():
     digraph.format = 'png'
     digraph.view('./boston_xgb')
 
-if __name__ == '__main__':    GBDT_main()
+if __name__ == '__main__':
+    GBDT_main()
 
 
 

@@ -100,36 +100,36 @@ def GBDT_main():
     '''
 
     # 训练集数据所需参数
-    tr_p_in = 0
-    tr_filename = 0
-    tr_read_in_fun = 0
-    tr_num_shards = 0
-    tr_instance_per_shard = 0
-    tr_ftype = 0
-    tr_ttype = 0
-    tr_fshape = 0
-    tr_tshape = 0
-    tr_batch_size = 0
-    tr_capacity = 0
-    tr_batch_fun = 0
-    tr_batch_step = 0
-    tr_files = 0
+    tr_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
+    tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-%.5d-of-%.5d'
+    tr_read_in_fun = LoadFile
+    tr_num_shards = 5
+    tr_instance_per_shard = 720
+    tr_ftype = tf.float64
+    tr_ttype = tf.float64
+    tr_fshape = 20
+    tr_tshape = 1
+    tr_batch_size = 720
+    tr_capacity = 3600 + 40*40
+    tr_batch_fun = tf.train.batch
+    tr_batch_step = 1
+    tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-*'
 
     # 测试集数据所需参数
-    te_p_in = 0
-    te_filename = 0
-    te_read_in_fun = 0
-    te_num_shards = 0
-    te_instance_per_shard = 0
-    te_ftype = 0
-    te_ttype = 0
-    te_fshape = 0
-    te_tshape = 0
-    te_batch_size = 0
-    te_capacity = 0
-    te_batch_fun = 0
-    te_batch_step = 0
-    te_files = 0
+    te_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
+    te_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_test.tfrecords-%.5d-of-%.5d'
+    te_read_in_fun = LoadFile
+    te_num_shards = 5
+    te_instance_per_shard = 720
+    te_ftype = tf.float64
+    te_ttype = tf.float64
+    te_fshape = 20
+    te_tshape = 1
+    te_batch_size = 720
+    te_capacity = 3600 + 40*40
+    te_batch_fun = tf.train.batch
+    te_batch_step = 1
+    te_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_test.tfrecords-*'
 
     with tf.name_scope('data_batch'):
         # 定义读取训练集数据对象
@@ -186,7 +186,7 @@ def GBDT_main():
         train_steps = tr_batch_step  # 将所有最后一级学习器所需要的训练集数据分5批读入时的循环计数变量
 
         # 循环训练次数和总轮数
-        epoch, loop = 1, 1000
+        epoch, loop = 1, 100
 
         # 摘要汇总
         merged = tf.summary.merge_all()
@@ -259,7 +259,7 @@ def GBDT_main():
 
             # Builds the SavedModel protocol buffer and saves variables and assets
             # 在和project相同层级目录下产生带有savemodel名称的文件夹
-            builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'sec_savemodel')
+            builder = tf.saved_model.builder.SavedModelBuilder(pb_file_path + 'savemodel')
             # Adds the current meta graph to the SavedModel and saves variables
             # 第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
             builder.add_meta_graph_and_variables(sess, ['cpu_server_1'])
@@ -268,6 +268,9 @@ def GBDT_main():
             p = builder.save()
             print('fc次级子学习器模型节点保存路径为: ', p)
             print('节点名称为: ' + '{gru_name}'.format(gru_name=gru_ops.op.name))
+
+if __name__ == '__main__':
+    GBDT_main()
 
 
 
