@@ -88,6 +88,7 @@ os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin'
 #
 #载入波士顿房价预测数据集做测试
 boston = datasets.load_boston()
+print(boston.data.shape, boston.target.shape)
 # train_feature, test_feature, train_target, test_target = train_test_split(boston.data, boston.target, test_size= 0.333,
 #                                                                           random_state= 42)
 #
@@ -119,12 +120,12 @@ kf = model_selection.KFold(n_splits= 5, shuffle= False, random_state= 32)
 boston_1 = np.hstack((boston.data, boston.target[:, np.newaxis]))
 np.random.shuffle(boston_1)
 for train, test in kf.split(boston_1):
-    train_data, test_data = boston_1[train], boston_1[test]
+    # train_data, test_data = boston_1[train], boston_1[test]
     print(test)
 
-for train, test in kf.split(boston_1):
-    train_data, test_data = boston_1[train], boston_1[test]
-    print(test)
+# for train, test in kf.split(boston_1):
+#     train_data, test_data = boston_1[train], boston_1[test]
+#     print(test)
 
 # print(boston.target.shape)
 # x = np.hstack((boston.data, boston.target[:, np.newaxis]))

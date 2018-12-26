@@ -19,8 +19,19 @@ from xgboost import plot_importance
 import xgboost as xgb
 from sklearn import model_selection
 import numpy as np
+import pickle
 import os
 os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin'
+
+def SaveFile(data):
+    '''存储整理好的数据'''
+
+    p = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle' #PNY和OLDBURG
+    # p = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\old_error.pickle'
+
+    if not os.path.exists(p):
+        with open(p, 'wb') as file:
+            pickle.dump(data, file)
 
 def GBDT_main():
     '''GBDT主函数'''
@@ -28,6 +39,7 @@ def GBDT_main():
     #初始化MSE和交叉验证折数fold
     MSE, fold = 0, 1
     #生成训练集和交叉验证集
+    ######################################实验数据制作###############################
     # 载入波士顿房价预测数据集做测试
     boston = datasets.load_boston()
     # k-fold对象
@@ -35,11 +47,12 @@ def GBDT_main():
 
     boston_1 = np.hstack((boston.data, boston.target[:, np.newaxis]))
     np.random.shuffle(boston_1)
+    #################################################################################
 
     #子学习器个数
-    n_estimators = 2
+    n_estimators = 20
     #设置误差阈值：三个误差评估设置#
-    Threshold = 200
+    Threshold = 20
 
     #生成GBDT模型
     model = XGBRegressor(
@@ -52,12 +65,16 @@ def GBDT_main():
         min_child_weight=1,  # 叶子结点最小权重
         subsample=1.,  # 随机选择样本比例建立决策树
         colsample_bytree=1.,  # 随机选择样本比例建立决策树
-        reg_lambda=2,  # 二阶范数正则化项权衡值（可调）
+        reg_lambda=3,  # 二阶范数正则化项权衡值（可调）
         scale_pos_weight=1.,  # 解决样本个数不平衡问题
         random_state=1000,  # 随机种子设定值
     )
 
     while (MSE > Threshold) or (fold == 1):
+
+        # 定义最终输出的target= target - pre_target,数据维度同target
+        fin_GBDT_error_target = np.array(None)
+
         #如果验证集MSE值大于阈值则将GBDT中弱学习器数量自增1
         model.n_estimators += 1
         for train_data_index, cv_data_index in kf.split(boston_1):
@@ -66,12 +83,26 @@ def GBDT_main():
             # 训练数据
             model.fit(X=train_data[:, :-1], y=train_data[:, -1])
 
-            # 对测试集进行MSE计算
+            # 对验证集进行预测
             pred_cv = model.predict(cv_data[:, :-1])
+
+            #每次对验证集都需要计算误差向量
+            fold_error = cv_data[:, -1] - pred_cv
+            fin_GBDT_error_target = fold_error if fin_GBDT_error_target.any() == None else \
+                np.hstack((fin_GBDT_error_target, fold_error))
+
+            # 对测试集进行MSE计算
             MSE = ((fold - 1) * MSE + mean_squared_error(cv_data[:, -1], pred_cv)) / fold
             fold += 1
 
         print('CART树个数: %s, 验证集MSE: %s' % (model.n_estimators, MSE))
+
+    print(fin_GBDT_error_target, fin_GBDT_error_target.shape)
+    ###################################实验数据需要修改###############################
+    data = np.hstack((boston_1[:, :-1], fin_GBDT_error_target[:, np.newaxis]))
+    #################################################################################
+    print(data.shape)
+    SaveFile(data)
 
     #保存模型
     model.get_booster().save_model('GBDT.model')
