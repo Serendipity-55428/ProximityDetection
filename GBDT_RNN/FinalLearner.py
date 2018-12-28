@@ -100,8 +100,10 @@ def GBDT_main():
     '''
 
     # 训练集数据所需参数
-    tr_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
-    tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-%.5d-of-%.5d'
+    # tr_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
+    # tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-%.5d-of-%.5d'
+    tr_p_in = r'F:\anaconda\envs\machinelearning\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
+    tr_filename = r'F:\anaconda\envs\machinelearning\Scripts\ProximityDetection\GBDT_train.tfrecords-%.5d-of-%.5d'
     tr_read_in_fun = LoadFile
     tr_num_shards = 5
     tr_instance_per_shard = 720
@@ -113,23 +115,8 @@ def GBDT_main():
     tr_capacity = 3600 + 40*40
     tr_batch_fun = tf.train.batch
     tr_batch_step = 1
-    tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-*'
-
-    # 测试集数据所需参数
-    te_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
-    te_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_test.tfrecords-%.5d-of-%.5d'
-    te_read_in_fun = LoadFile
-    te_num_shards = 5
-    te_instance_per_shard = 720
-    te_ftype = tf.float64
-    te_ttype = tf.float64
-    te_fshape = 20
-    te_tshape = 1
-    te_batch_size = 720
-    te_capacity = 3600 + 40*40
-    te_batch_fun = tf.train.batch
-    te_batch_step = 1
-    te_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_test.tfrecords-*'
+    # tr_files = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-*'
+    tr_files = r'F:\anaconda\envs\machinelearning\Scripts\ProximityDetection\GBDT_train.tfrecords-*'
 
     with tf.name_scope('data_batch'):
         # 定义读取训练集数据对象
@@ -139,14 +126,6 @@ def GBDT_main():
         train_fileoperation.file2TFRecord()
 
         train_feature_batch, train_target_batch = train_fileoperation.ParseDequeue(tr_files)
-
-        # 定义读取测试集数据对象
-        test_fileoperation = FileoOperation(te_p_in, te_filename, te_read_in_fun, te_num_shards, te_instance_per_shard,
-                                            te_ftype, te_ttype, te_fshape, te_tshape, te_batch_size, te_capacity,
-                                            te_batch_fun, te_batch_step)
-        test_fileoperation.file2TFRecord()
-
-        test_feature_batch, test_target_batch = test_fileoperation.ParseDequeue(te_files)
 
     with tf.name_scope('x-y'):
         # 训练数据批次占位符,占位符读入数据形状和一个批次的数据特征矩阵形状相同
@@ -185,8 +164,10 @@ def GBDT_main():
 
         train_steps = tr_batch_step  # 将所有最后一级学习器所需要的训练集数据分5批读入时的循环计数变量
 
+        #交叉验证折数序号
+        fold = 1
         # 循环训练次数和总轮数
-        epoch, loop = 1, 100
+        epoch, loop = 1, 1000
 
         # 摘要汇总
         merged = tf.summary.merge_all()
@@ -208,35 +189,55 @@ def GBDT_main():
 
         try:
             while not coord.should_stop():  # 如果线程应该停止则返回True
-                # 批量读取次级学习器训练集特征和标签数据
                 tr_feature_batch, tr_target_batch = sess.run([train_feature_batch, train_target_batch])
+                #记录读入第几折
+                # print(batch_num)
+                # batch_num = 1 if batch_num == 5 else (batch_num + 1)
 
                 summary = sess.run(merged, feed_dict={x: tr_feature_batch, y: tr_target_batch})
 
-                _ = sess.run(gru_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                if not (train_steps % 5):
-                    loss_fc = sess.run(gru_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
-                    print('FC次级学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+                #测试用
+                # print(tr_feature_batch, tr_target_batch)
 
-                    # 对测试集进行acc（loss）计算
-                    test_steps = 2
-                    for i in range(test_steps):
-                        # 批量读取次级学习器测试集特征和标签数据
-                        te_feature_batch, te_target_batch = sess.run([test_feature_batch, test_target_batch])
-                        loss_fc = sess.run(gru_loss, feed_dict={x: te_feature_batch, y: te_target_batch})
-                        # 对每个批次的测绘集数据进行输出
-                        print('FC次级学习器预测损失在第 %s 个epoch的数值为: %s' % (epoch, loss_fc))
+                if (train_steps % 5) != fold:
+                    # 读入后20个特征
+                    _ = sess.run(gru_optimize, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                if (train_steps == ((fold-1) * 5 * loop + fold)):  # 循环训练时只需在第一次提取训练集中待预测批次
+                    # 将序号等于group的一折（批次）数据存入cross_tr_feature, cross_tr_target中
+                    cross_tr_feature_batch, super_tr_target_batch = tr_feature_batch, tr_target_batch
 
-                    # 在train_steps为5的倍数时(5个批次的测试集已经全部读入预测后)更新
+                    # 测试代码
+                    # print('train_steps: %s, epoch: %s, fold: %s' % (train_steps, epoch, fold))
+                    # print(cross_tr_feature_batch, super_tr_target_batch)
+
+                if not (train_steps % int(5*loop/100)): #如果train_steps是fold*batch*loop/100的倍数时输出训练集和验证集的MSE
+                    loss_gru = sess.run(gru_loss, feed_dict={x: tr_feature_batch, y: tr_target_batch})
+                    print('GRU子学习器损失函数在第 %s 个epoch的数值为: %s' % (epoch, loss_gru))
+                    # 对1折测试集输出均方差
+                    loss_gru_test = sess.run(gru_loss, feed_dict={x: cross_tr_feature_batch, y: super_tr_target_batch})
+                    print('---GRU子学习器损失函数（acc）在第 %s 个epoch的数值为: %s' % (epoch, loss_gru_test))
+
+                train_steps += 1
+
+                #在一次五折交叉验证循环loop次后更新fold值
+                if not (train_steps % (5 * loop)):
+                    fold += 1
+                    epoch = 1
+
+                    if fold <= 5:
+                        print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
+
+                # 在train_steps为5的倍数时更新
+                if train_steps % 5 == 0:
                     summary_writer.add_summary(summary, epoch)
                     epoch += 1
 
-                train_steps += 1
-                if train_steps > 5 * loop:
-                        coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
+                #fold更新至5且最后一次五折交叉验证完成后请求所有线程结束
+                if train_steps > 5*5*loop:
+                    coord.request_stop()  # 请求该线程停止，若执行则使得coord.should_stop()函数返回True
 
         except tf.errors.OutOfRangeError:
-            print('次级训练器训练结束!')
+            print('GRU训练器训练结束!')
         finally:
             # When done, ask the threads to stop. 请求该线程停止
             coord.request_stop()

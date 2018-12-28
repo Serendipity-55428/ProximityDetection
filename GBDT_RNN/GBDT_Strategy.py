@@ -26,8 +26,9 @@ os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin'
 def SaveFile(data):
     '''存储整理好的数据'''
 
-    p = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle' #PNY和OLDBURG
+    # p = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle' #PNY和OLDBURG
     # p = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\old_error.pickle'
+    p = r'F:\anaconda\envs\machinelearning\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
 
     if not os.path.exists(p):
         with open(p, 'wb') as file:
