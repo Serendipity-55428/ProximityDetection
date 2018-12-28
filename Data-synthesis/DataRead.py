@@ -56,11 +56,8 @@ with open(p, 'r') as f:
         #min_cost位置回退2便指向对应20个密度特征，回退3便指向当前最优半径
         twenty_feature = file[min_cost - 2][:-2]
         twenty_feature = twenty_feature.split(' ')
-        # for i in twenty_feature:
-        #     print(':%s:' % i)
         twenty_feature = [float(i) for i in twenty_feature] if len([float(i) for i in twenty_feature]) == 20 else\
             [float(i) for i in twenty_feature[1:]]
-        # print(file[min_cost - (ts + 1) * 3][:]) #拍错
         #拼接特征向量
         sub_feature.extend(twenty_feature)
         sub_feature.append(float(file[min_cost - (ts + 1) * 3][4:-1]))
