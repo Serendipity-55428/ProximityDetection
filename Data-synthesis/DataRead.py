@@ -28,8 +28,8 @@ def GeneratorData(type, filename_prefix):
     Threshold = [i for i in range(1, 11)]
     #初始化待输出numpy数据矩阵
     dataset = np.zeros(shape=(1, 25))
-    for file_movingObjects in [movingObjects[2]]:
-        for file_maxSpeed in [maxSpeed[0]]:  # file_maxSpeed类型为元组
+    for file_movingObjects in [movingObjects[2]]: #改
+        for file_maxSpeed in [maxSpeed[0]]:  # file_maxSpeed类型为元组 #改
             for file_friends in friends:
                 for file_Threshold in Threshold:
                     # 前4个特征列表，需要和文件中20个特征、1个最优半径结合后转换为ndarray类型向量
