@@ -11,6 +11,7 @@
 '''
 import re
 import numpy as np
+import xlwt
 
 type = [i for i in range(1, 3)]
 movingObjects = [1000, 1500, 2000, 4000, 6000, 8000, 10000, 20000, 40000, 60000, 80000, 100000]
@@ -65,6 +66,31 @@ for file_type in [type[0]]:
 print(dataframe)
 print(dataframe.shape)
 print(dataframe.dtype)
+
+def Numpy2Excel(data, save_p, name= 'PNY'):
+    '''
+    将numpy数组转化为xls/xlsx
+    :param data: 待转化数据
+    :param save_p: 输出xls/xlsx绝对路径
+    :return: xls/xlsx
+    '''
+    file = xlwt.Workbook()
+    table = file.add_sheet(sheetname= name, cell_overwrite_ok=True)
+    # 建立列名:
+    table.write(0, 0, 'movingObjects')
+    table.write(0, 1, 'maxSpeed')
+    table.write(0, 2, 'friends')
+    table.write(0, 3, 'Threshold')
+    for i in range(1, 21):
+        table.write(0, i+3, 'Density %s' % i)
+    table.write(0, 24, 'optimal_r')
+
+    for h in range(data.shape[0]):
+        for v in range(data.shape[-1]):
+            table.write(h+1, v, str(data[h, v]))
+
+    file.save(save_p)
+
 
 
 
