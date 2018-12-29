@@ -9,7 +9,8 @@
 @time: 2018/12/28 13:06
 @desc:
 '''
-import re
+import os.path
+import pickle
 import numpy as np
 import xlwt
 
@@ -94,13 +95,36 @@ def Numpy2Excel(data, save_p, name= 'PNY'):
 
     file.save(save_p)
 
+def SaveFile(data, savepickle_p):
+    '''
+    存储整理好的数据'
+    :param data: 待存储数据
+    :param savepickle_p: pickle后缀文件存储绝对路径
+    :return: None
+    '''''
+    if not os.path.exists(savepickle_p):
+        with open(savepickle_p, 'wb') as file:
+            pickle.dump(data, file)
+
+
 if __name__ == '__main__':
     type= 1
     filename_prefix = r'D:\proximityOnTimeAwareRN_generateFriends'
     dataset = GeneratorData(type= type, filename_prefix= filename_prefix)
-    print(dataset)
-    print(dataset.shape)
-    print(dataset.dtype)
+    # zero_r, nonzero_r = 0, 0
+    # r = dataset[:, -1]
+    # for i in r:
+    #     if i == 0.01:
+    #         zero_r += 1
+    # nonzero_r = len(r) - zero_r
+    # print('最优半径为0.01个数: %s \n 最优半径不为0.01的个数: %s' % (zero_r, nonzero_r))
+    # print(dataset)
+    # print(dataset.shape)
+    # print(dataset.dtype)
+    #保存文件到Excel
+    save_p = r'F:\anaconda\envs\machinelearning\Scripts\ProximityDetection\datasets.xlsx'
+    Numpy2Excel(data= dataset, save_p= save_p)
+
     #对单个文件进行测试
     # dataframe = np.zeros(shape=(1, 25))
     # # 前4个特征列表，需要和文件中20个特征、1个最优半径结合后转换为ndarray类型向量
