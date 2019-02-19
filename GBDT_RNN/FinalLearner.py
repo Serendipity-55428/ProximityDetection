@@ -98,7 +98,6 @@ def GBDT_main():
     GBDT策略主函数
     :return: None
     '''
-
     # 训练集数据所需参数
     tr_p_in = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_RNN\pny_error.pickle'
     tr_filename = r'C:\Users\xiaosong\Anaconda3\envs\ml\Scripts\ProximityDetection\GBDT_train.tfrecords-%.5d-of-%.5d'
