@@ -200,13 +200,13 @@ def stacking_first_main():
     # batch_num = 1
 
     # 初级学习器预测得到的两个特征进行组合后作为次级学习器的特征向量，起始值为空
-    super_tr_feature = np.array(None)
+    super_tr_feature = np.zeros(shape= (1, 6))
     # 初级学习器读取文件中训练集标签直接传到次级学习器中，起始值为空
-    super_tr_target_batch_all = np.array(None)
+    super_tr_target_batch_all = np.zeros(shape= (tr_batch_size, tr_tshape))
     # 测试样本标签在初级学习器读取文件后直接传到次级学习器中，起始值为空
-    super_te_target_batch_all = np.array(None)
+    super_te_target_batch_all = np.zeros(shape= (te_batch_size, te_tshape))
     # 得到的次级学习器测试集特征取5次平均值
-    super_te_feature_ave = np.array(None)
+    super_te_feature_ave = np.zeros(shape= (1, 6))
 
 
 
@@ -297,7 +297,7 @@ def stacking_first_main():
 
                     # (读入后20个特征情况)组合特征得到次级学习器训练集特征矩阵（需要存储至新文件）
                     super_tr_feature = np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4])) \
-                        if super_tr_feature.any() == None else \
+                        if super_tr_feature.any() == 0 else \
                         np.vstack((super_tr_feature, np.hstack((predict_cnn, predict_gru, cross_tr_feature_batch[:, :4]))))
                     if fold <= 5:
                         print('正在预测第 %s 折样本的部分次级学习特征值' % fold)
@@ -312,7 +312,7 @@ def stacking_first_main():
                     #####################
 
                     # 组合标签得到次级学习器训练集标签矩阵（需要存储至新文件）
-                    super_tr_target_batch_all = super_tr_target_batch if super_tr_target_batch_all.any() == None else \
+                    super_tr_target_batch_all = super_tr_target_batch if super_tr_target_batch_all.any() == 0 else \
                         np.vstack((super_tr_target_batch_all, super_tr_target_batch))
 
                     ############################对测试集数据进行初级预测得到次级特征#########################
@@ -320,7 +320,7 @@ def stacking_first_main():
                     test_steps = 2
 
                     # 测试样本经过初级学习器预测后得到两个特征组合为次级学习器所需特征向量，起始值为空
-                    super_te_feature = np.array(None)
+                    super_te_feature = np.zeros(shape= (1, 6))
 
                     for i in range(test_steps):
                         # 读取测试集一个批次的特征和标签
@@ -334,7 +334,7 @@ def stacking_first_main():
 
                         # (读入后20个特征情况)组合特征得到次级学习器测试集特征矩阵(取5次预测的平均值)
                         super_te_feature = np.hstack((te_sufeature_cnn, te_sufeature_gru, te_feature_batch[:, :4])) \
-                            if super_te_feature.any() == None else np.vstack((super_te_feature,
+                            if super_te_feature.any() == 0 else np.vstack((super_te_feature,
                                                                               np.hstack((te_sufeature_cnn,
                                                                                          te_sufeature_gru,
                                                                                          te_feature_batch[:, :4]))))
@@ -351,11 +351,11 @@ def stacking_first_main():
                         #在第一组训练结束后fold已经变为2
                         if fold == 2:
                             # 组合标签得到次级学习器测试集标签矩阵（需要存储至新文件）
-                            super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == None else \
+                            super_te_target_batch_all = te_target_batch if super_te_target_batch_all.any() == 0 else \
                                 np.vstack((super_te_target_batch_all, te_target_batch))
 
                     # 次级学习器测试集特征矩阵，递归取平均（需要存储至新文件）
-                    super_te_feature_ave = super_te_feature if super_te_feature_ave.any() == None else \
+                    super_te_feature_ave = super_te_feature if super_te_feature_ave.any() == 0 else \
                         ((fold - 1) * super_te_feature_ave + super_te_feature) / fold
 
                 # 在train_steps为5的倍数时更新
