@@ -92,7 +92,7 @@ class CNN(NeuralNetwork):
         '''
         卷积神经网络构造函数
         :param x: Tensor, 单一数据特征
-        :param w_conv: type= iterable, 单个卷积核维度(4维)
+        :param w_conv: type= Variable, 单个卷积核维度(4维)
         :param stride_conv: 卷积核移动步伐
         :param stride_pool: 池化核移动步伐
         '''
@@ -101,13 +101,13 @@ class CNN(NeuralNetwork):
         self.__stride_conv = stride_conv
         self.__stride_pool = stride_pool
 
-    def convolution(self, op_outside= 'x'):
+    def convolution(self, input='x'):
         '''
         单层卷积操作
-        :param op_outside: setdefult:x, 输入待进行卷积操作节点
+        :param input: setdefult:x, 输入待进行卷积操作节点
         :return: ops, 单层卷积操作后节点
         '''
-        input = op_outside if op_outside != 'x' else self.x
+        input = input if input != 'x' else self.x
         filter_initial = tf.Variable(tf.truncated_normal(shape= self.__w_conv, mean= 0, stddev= 1)) #mean、stddev可更改
         return tf.nn.conv2d(input= input, filter= filter_initial, strides= [1, self.__stride_conv, self.__stride_conv, 1], padding= 'SAME')
 
