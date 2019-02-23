@@ -12,7 +12,7 @@
 from AllNet import CNN, RNN, FNN
 from TestEvaluation import Evaluation
 from DataGenerate import data_stepone, data_steptwo, second_dataset
-from Routine_operation import SaveFile, LoadFile
+from Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model
 import tensorflow as tf
 import numpy as np
 import os
@@ -26,7 +26,7 @@ def cnn_mode():
     '''
     CNN_graph = tf.Graph()
     with CNN_graph.as_default():
-        x = tf.placeholder(dtype=tf.float32, shape=(None, 20), name='xt')
+        x = tf.placeholder(dtype=tf.float32, shape=(None, 25), name='xt')
         y = tf.placeholder(dtype=tf.float32, shape=(None, 1), name='yt')
         bn_istraining = tf.placeholder(dtype=tf.bool, name='bn_istraining')
         learning_rate_cnn = tf.placeholder(dtype=tf.float32, name='learning_rate_cnn')
@@ -48,28 +48,16 @@ def cnn_mode():
         }
         # 核张量
         kernel_para = {
-            'w1': tf.Variable(initial_value=tf.truncated_normal(
-                shape=(kernel_size['w1_edge'], kernel_size['w1_edge'], 1, kernel_size['w1_deep']),
-                mean=0, stddev=1), dtype=tf.float32, name='w1'),
-            'w2': tf.Variable(initial_value=tf.truncated_normal(
-                shape=(kernel_size['w2_edge'], kernel_size['w2_edge'], kernel_size['w1_deep'], kernel_size['w2_deep']),
-                mean=0, stddev=1), dtype=tf.float32, name='w2'),
-            'w3': tf.Variable(initial_value=tf.truncated_normal(
-                shape=(kernel_size['w3_edge'], kernel_size['w3_edge'], kernel_size['w2_deep'], kernel_size['w3_deep']),
-                mean=0, stddev=1), dtype=tf.float32, name='w3'),
-            'w4': tf.Variable(initial_value=tf.truncated_normal(
-                shape=(kernel_size['w4_edge'], kernel_size['w4_edge'], kernel_size['w3_deep'], kernel_size['w4_deep']),
-                mean=0, stddev=1), dtype=tf.float32, name='w4'),
-            'w5': tf.Variable(initial_value=tf.truncated_normal(
-                shape=(kernel_size['w5_edge'], kernel_size['w5_edge'], kernel_size['w4_deep'], kernel_size['w5_deep']),
-                mean=0, stddev=1), dtype=tf.float32, name='w5'),
-            'w6': tf.Variable(initial_value=tf.truncated_normal(
-                shape=(kernel_size['w6_edge'], kernel_size['w6_edge'], kernel_size['w5_deep'], kernel_size['w6_deep']),
-                mean=0, stddev=1), dtype=tf.float32, name='w6'),
+            'w1_size': (kernel_size['w1_edge'], kernel_size['w1_edge'], 1, kernel_size['w1_deep']),
+            'w2_size': (kernel_size['w2_edge'], kernel_size['w2_edge'], kernel_size['w1_deep'], kernel_size['w2_deep']),
+            'w3_size': (kernel_size['w3_edge'], kernel_size['w3_edge'], kernel_size['w2_deep'], kernel_size['w3_deep']),
+            'w4_size': (kernel_size['w4_edge'], kernel_size['w4_edge'], kernel_size['w3_deep'], kernel_size['w4_deep']),
+            'w5_size': (kernel_size['w5_edge'], kernel_size['w5_edge'], kernel_size['w4_deep'], kernel_size['w5_deep']),
+            'w6_size': (kernel_size['w6_edge'], kernel_size['w6_edge'], kernel_size['w5_deep'], kernel_size['w6_deep']),
         }
 
         # 卷积层(数据特征维度：20->5*5)
-        cnn_1 = CNN(x=x, w_conv=kernel_para['w1'], stride_conv=1, stride_pool=2)
+        cnn_1 = CNN(x=x, w_conv=kernel_para['w1_size'], stride_conv=1, stride_pool=2)
         # 将向量x转换为5*5方形张量
         x_reshape = CNN.reshape(f_vector=x, new_shape=(-1, 5, 5, 1))
         # 1
@@ -77,31 +65,31 @@ def cnn_mode():
         relu1 = tf.nn.relu(layer_1)
         bn1 = cnn_1.batch_normoalization(input=relu1, is_training=bn_istraining)
         # 2
-        cnn_2 = CNN(x=bn1, w_conv=kernel_para['w2'], stride_conv=1, stride_pool=2)
+        cnn_2 = CNN(x=bn1, w_conv=kernel_para['w2_size'], stride_conv=1, stride_pool=2)
         layer_2 = cnn_2.convolution(input=bn1)
         relu2 = tf.nn.relu(layer_2)
         bn2 = cnn_2.batch_normoalization(input=relu2, is_training=bn_istraining)
         # 3
-        cnn_3 = CNN(x=bn2, w_conv=kernel_para['w3'], stride_conv=1, stride_pool=2)
+        cnn_3 = CNN(x=bn2, w_conv=kernel_para['w3_size'], stride_conv=1, stride_pool=2)
         layer_3 = cnn_3.convolution(input=bn2)
         relu3 = tf.nn.relu(layer_3)
         bn3 = cnn_3.batch_normoalization(input=relu3, is_training=bn_istraining)
         # pool
         pool1 = cnn_3.pooling(pool_fun=tf.nn.max_pool, input=bn3)
         # 4
-        cnn_4 = CNN(x=pool1, w_conv=kernel_para['w4'], stride_conv=1, stride_pool=2)
+        cnn_4 = CNN(x=pool1, w_conv=kernel_para['w4_size'], stride_conv=1, stride_pool=2)
         layer_4 = cnn_4.convolution()
         relu4 = tf.nn.relu(layer_4)
         bn4 = cnn_4.batch_normoalization(input=relu4, is_training=bn_istraining)
         # 5
-        cnn_5 = CNN(x=bn4, w_conv=kernel_para['w5'], stride_conv=1, stride_pool=2)
+        cnn_5 = CNN(x=bn4, w_conv=kernel_para['w5_size'], stride_conv=1, stride_pool=2)
         layer_5 = cnn_5.convolution()
         relu5 = tf.nn.relu(layer_5)
         bn5 = cnn_5.batch_normoalization(input=relu5, is_training=bn_istraining)
         # pool
         pool2 = cnn_5.pooling(pool_fun=tf.nn.max_pool, input=bn5)
         # 6
-        cnn_6 = CNN(x=pool2, w_conv=kernel_para['w6'], stride_conv=1, stride_pool=2)
+        cnn_6 = CNN(x=pool2, w_conv=kernel_para['w6_size'], stride_conv=1, stride_pool=2)
         layer_6 = cnn_6.convolution()
         relu6 = tf.nn.relu(layer_6)
         bn6 = cnn_6.batch_normoalization(input=relu6, is_training=bn_istraining)
@@ -142,15 +130,16 @@ def cnn_mode():
         # 将数据集划分为训练集和测试集
         for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=True, proportion=5):
             for epoch in range(epoch_all):
+                # 设定标志在100的倍数epoch时只输出一次结果
+                flag = 1
                 # 以一定批次读入某一折数据进行训练
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
                     _ = sess.run(optimize_cnn,
-                                 feed_dict={x: batch_x, y: batch_y, bn_istraining: True, learning_rate_cnn: 1e-4})
-                    # 设定标志在100的倍数epoch时只输出一次结果
-                    flag = 1
+                                 feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True, learning_rate_cnn: 1e-4})
+
                     if (epoch % 100) == 0 and flag == 1:
-                        loss_cnn_ = sess.run(loss_cnn, feed_dict={x: batch_x, y: batch_y, bn_istraining: True})
-                        acc_cnn_ = sess.run(acc_cnn, feed_dict={x: test[:, :-1], y: test[:, -1], bn_istraining: False})
+                        loss_cnn_ = sess.run(loss_cnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True})
+                        acc_cnn_ = sess.run(acc_cnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis], bn_istraining: False})
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_cnn_, fold, acc_cnn_))
                         flag = 0
 
@@ -211,14 +200,15 @@ def rnn_mode():
         # 将数据集划分为训练集和测试集
         for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=5):
             for epoch in range(epoch_all):
+                # 设定标志在100的倍数epoch时只输出一次结果
+                flag = 1
                 # 以一定批次读入某一折数据进行训练
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
-                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y, learning_rate_rnn: 1e-4})
-                    # 设定标志在100的倍数epoch时只输出一次结果
-                    flag = 1
+                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-4})
+
                     if (epoch % 100) == 0 and flag == 1:
-                        loss_rnn_ = sess.run(loss_rnn, feed_dict={x: batch_x, y: batch_y})
-                        acc_rnn_ = sess.run(acc_rnn, feed_dict={x: test[:, :-1], y: test[:, -1]})
+                        loss_rnn_ = sess.run(loss_rnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis]})
+                        acc_rnn_ = sess.run(acc_rnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis]})
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_rnn_, fold, acc_rnn_))
                         flag = 0
 
@@ -244,25 +234,25 @@ def fnn_mode():
 
         h_size = {
             'w1_insize': 6,
-            'w1_outsize': 256,
-            'w_2_insize': 256,
-            'w_2_outsize': 96,
-            'w_3_insize': 96,
-            'w_3_outsize': 1
+            'w1_outsize': 100,
+            'w2_insize': 100,
+            'w2_outsize': 200,
+            'w3_insize': 200,
+            'w3_outsize': 1
         }
-
+        summary_visualization = Summary_Visualization()
         h_para = (
-            (tf.Variable(initial_value= tf.truncated_normal(shape= ([h_size['w1_insize1'], h_size['w1_outsize']]),
+            (tf.Variable(initial_value= tf.truncated_normal(shape= ([h_size['w1_insize'], h_size['w1_outsize']]),
                                                             mean= 0, stddev= 1), dtype= tf.float32, name= 'w1'),
-             tf.Variable(initial_value= tf.truncated_normal(shape= ([h_size['w_1_outsize']]),
+             tf.Variable(initial_value= tf.truncated_normal(shape= ([h_size['w1_outsize']]),
                                                             mean= 0, stddev= 1), dtype= tf.float32, name= 'b1')),
-            (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w2_insize1'], h_size['w2_outsize']]),
+            (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w2_insize'], h_size['w2_outsize']]),
                                                            mean=0, stddev=1), dtype=tf.float32, name='w2'),
-             tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w_2_outsize']]),
+             tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w2_outsize']]),
                                                            mean=0, stddev=1), dtype=tf.float32, name='b2')),
-            (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w3_insize1'], h_size['w3_outsize']]),
+            (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w3_insize'], h_size['w3_outsize']]),
                                                            mean=0, stddev=1), dtype=tf.float32, name='w3'),
-             tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w_3_outsize']]),
+             tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w3_outsize']]),
                                                            mean=0, stddev=1), dtype=tf.float32, name='b3')),
         )
 
@@ -270,10 +260,10 @@ def fnn_mode():
         fc_output = fnn.fc_concat(keep_prob= 0.8)
         # 代价函数、优化函数、评价指标
         loss_fnn = tf.reduce_mean(tf.square(fc_output - y))
-        optimize_rnn = tf.train.GradientDescentOptimizer(learning_rate=learning_rate_fnn).minimize(loss_fnn)
-        evaluation_rnn = Evaluation(one_hot=False, logit=None, label=None, regression_label=y,
+        optimize_fnn = tf.train.AdamOptimizer(learning_rate=learning_rate_fnn).minimize(loss_fnn)
+        evaluation_fnn = Evaluation(one_hot=False, logit=None, label=None, regression_label=y,
                                     regression_pred=fc_output)
-        acc_fnn = evaluation_rnn.acc_regression(Threshold=0.1)  # 评价指标中的阈值可以修改
+        acc_fnn = evaluation_fnn.acc_regression(Threshold=0.9)  # 评价指标中的阈值可以修改
 
         # 变量初始化节点,显卡占用率分配节点
         init = tf.global_variables_initializer()
@@ -282,8 +272,7 @@ def fnn_mode():
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph=FNN_graph) as sess:
         sess.run(init)
         # 导入数据
-        p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data.pickle' #改
-        dataset_ori = LoadFile(p=p_dataset_ori)
+        p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data_2.pickle'
         # 记录折数
         fold = 0
         # 总训练轮数
@@ -291,18 +280,23 @@ def fnn_mode():
         # 将数据集划分为训练集和测试集
         for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=5):
             for epoch in range(epoch_all):
+                # 设定标志在100的倍数epoch时只输出一次结果
+                flag = 1
                 # 以一定批次读入某一折数据进行训练
-                for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
-                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y, learning_rate_fnn: 1e-4})
-                    # 设定标志在100的倍数epoch时只输出一次结果
-                    flag = 1
+                for batch_x, batch_y in data_steptwo(train_data=train, batch_size=1000):
+                    _ = sess.run(optimize_fnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_fnn: 1e-4})
+
                     if (epoch % 100) == 0 and flag == 1:
-                        loss_rnn_ = sess.run(loss_fnn, feed_dict={x: batch_x, y: batch_y})
-                        acc_rnn_ = sess.run(acc_fnn, feed_dict={x: test[:, :-1], y: test[:, -1]})
-                        print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_rnn_, fold, acc_rnn_))
+                        loss_fnn_ = sess.run(loss_fnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis]})
+                        acc_fnn_ = sess.run(acc_fnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis]})
+                        acc_fnn_train = sess.run(acc_fnn, feed_dict={x:train[:, :-1], y:train[:, -1][:, np.newaxis]})
+                        print('训练集精度为: %s' % acc_fnn_train)
+                        print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_fnn_, fold, acc_fnn_))
                         flag = 0
 
             fold += 1
 
 if __name__ == '__main__':
-    pass
+    # cnn_mode()
+    # rnn_mode()
+    fnn_mode()

@@ -54,18 +54,22 @@ def second_dataset(dataset_ori, pred):
     return sub_dataset
 
 if __name__ == '__main__':
-    #制作数据总数100,5折
-    dataset = np.arange(25*5).reshape(25, 5)
-    SaveFile(data= dataset, savepickle_p= r'F:\ProximityDetection\Stacking\test_data.pickle')
+    #制作数据总数10000,5折
+    rng = np.random.RandomState(0)
+    # dataset = rng.randint(0, 10, size= (10000, 21))
+    # SaveFile(data= dataset, savepickle_p= r'F:\ProximityDetection\Stacking\test_data.pickle')
+    dataset_2 = rng.randint(0, 10, size= (10000, 7))
+    SaveFile(data= dataset_2, savepickle_p= r'F:\ProximityDetection\Stacking\test_data_2.pickle')
     # 导入数据
-    p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data.pickle'
+    # p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data.pickle'
+    p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data_2.pickle'
     dataset_ori = LoadFile(p=p_dataset_ori)
     #step1
-    for train, test in data_stepone(p_dataset_ori= p_dataset_ori, padding= True, proportion= 5):
-        print(train)
-        print(test)
-        for feature, label in data_steptwo(train_data= train, batch_size= 5):
-            print(feature, label)
-        break
+    for train, test in data_stepone(p_dataset_ori= p_dataset_ori, padding= False, proportion= 5):
+        print(train.shape)
+        print(test.shape)
+        # for feature, label in data_steptwo(train_data= train, batch_size= 500):
+        #     print(feature, label)
+        # break
 
 

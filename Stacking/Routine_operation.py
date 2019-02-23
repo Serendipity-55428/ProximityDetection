@@ -15,6 +15,7 @@ import os
 import pickle
 import pandas as pd
 from matplotlib import pyplot as plt
+from tensorflow.python.framework import graph_util
 
 def LoadFile(p):
     '''
@@ -60,7 +61,8 @@ class Summary_Visualization:
         摘要汇总
         :return: 汇总所有摘要的函数
         '''
-        return tf.summary.merge_all()
+        merge = tf.summary.merge_all()
+        return merge
 
     def summary_file(self, p, graph):
         '''
@@ -100,7 +102,64 @@ class Summary_Visualization:
 
 class SaveImport_model:
     '''
-    将模型保存为节点和pb格式
+    将模型写入序列化pb文件
     '''
+    def __init__(self, sess_ori, sess_new, file_suffix, *ops):
+        '''
+        构造函数
+        :param sess_ori: 原始会话实例对象(sess)
+        :param sess_new: 新会话实例对象(sess)
+        :param file_suffix: type= str, 存储模型的文件名后缀
+        :param ops: 节点序列（含初始输入节点x）
+        '''
+        self.__sess_ori = sess_ori
+        self.__sess_new = sess_new
+        self.__pb_file_path = os.getcwd() #获取pb文件保存路径前缀
+        self.__file_suffix = file_suffix
+        self.__ops = ops
+
+    def save_pb(self):
+        '''
+        保存计算图至指定文件夹目录下
+        :return: None
+        '''
+        # 存储计算图为pb格式
+        #设置output_node_names列表(含初始输入x节点)
+        output_node_names = ['{op_name}'.format(op_name = per_op.op.name) for per_op in self.__ops]
+        # Replaces all the variables in a graph with constants of the same values
+        constant_graph = graph_util.convert_variables_to_constants(self.__sess_ori,
+                                                                   self.__sess_ori.graph_def,
+                                                                   output_node_names= output_node_names)
+        # 写入序列化的pb文件
+        with tf.gfile.FastGFile(self.__pb_file_path + 'model.pb', mode='wb') as f:
+            f.write(constant_graph.SerializeToString())
+
+        # Builds the SavedModel protocol buffer and saves variables and assets
+        # 在和project相同层级目录下产生带有savemodel名称的文件夹
+        builder = tf.saved_model.builder.SavedModelBuilder(self.__pb_file_path + self.__file_suffix)
+        # Adds the current meta graph to the SavedModel and saves variables
+        # 第二个参数为字符列表形式的tags – The set of tags with which to save the meta graph
+        builder.add_meta_graph_and_variables(self.__sess_ori, ['cpu_server_1'])
+        # Writes a SavedModel protocol buffer to disk
+        # 此处p值为生成的文件夹路径
+        p = builder.save()
+        print('计算图保存路径为: ', p)
+        for i in output_node_names:
+            print('节点名称为:' + i)
+
+    def use_pb(self):
+        '''
+        将计算图从指定文件夹导入至工程
+        :return: 模型节点序列
+        '''
+        # Loads the model from a SavedModel as specified by tags
+        tf.saved_model.loader.load(self.__sess_new, ['cpu_server_1'], self.__pb_file_path + self.__file_suffix)
+
+        # Returns the Tensor with the given name
+        # 名称都为'{output_name}: output_index'格式
+        ops = [self.__sess_new.graph.get_tensor_by_name('{op_name}'.format(op_name = per_op.op.name))
+               for per_op in self.__ops] #ops序列第一个值为初始化节点x
+        return ops
+
 
 
