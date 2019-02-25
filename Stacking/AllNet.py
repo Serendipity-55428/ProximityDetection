@@ -92,7 +92,7 @@ class CNN(NeuralNetwork):
         '''
         卷积神经网络构造函数
         :param x: Tensor, 单一数据特征
-        :param w_conv: type= tuple, 单个卷积核维度(4维)
+        :param w_conv: tf.Variable, 单个卷积核(4维)
         :param stride_conv: 卷积核移动步伐
         :param stride_pool: 池化核移动步伐
         '''
@@ -108,8 +108,7 @@ class CNN(NeuralNetwork):
         :return: ops, 单层卷积操作后节点
         '''
         input = input if input != 'x' else self.x
-        filter_initial = tf.Variable(tf.truncated_normal(shape= self.__w_conv, mean= 0, stddev= 1), tf.float32) #mean、stddev可更改
-        return tf.nn.conv2d(input= input, filter= filter_initial, strides= [1, self.__stride_conv, self.__stride_conv, 1], padding= 'SAME')
+        return tf.nn.conv2d(input= input, filter= self.__w_conv, strides= [1, self.__stride_conv, self.__stride_conv, 1], padding= 'SAME')
 
     def pooling(self, pool_fun, input):
         '''

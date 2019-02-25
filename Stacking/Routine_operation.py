@@ -59,7 +59,7 @@ class Summary_Visualization:
     def summary_merge(self):
         '''
         摘要汇总
-        :return: 汇总所有摘要的函数
+        :return: 摘要汇总节点
         '''
         merge = tf.summary.merge_all()
         return merge
@@ -91,10 +91,10 @@ class Summary_Visualization:
         '''
         summary_writer.close()
 
-    def scalar_summaries(self, **arg):
+    def scalar_summaries(self, arg):
         '''
         生成节点摘要
-        :param arg: 生成节点名和节点变量名键值对的关键字参数
+        :param arg: 生成节点名和节点变量名键值对的字典
         :return: None
         '''
         for key, value in arg.items():
