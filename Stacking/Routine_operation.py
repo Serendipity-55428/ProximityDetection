@@ -104,16 +104,14 @@ class SaveImport_model:
     '''
     将模型写入序列化pb文件
     '''
-    def __init__(self, sess_ori, sess_new, file_suffix, *ops):
+    def __init__(self, sess_ori, file_suffix, ops):
         '''
         构造函数
         :param sess_ori: 原始会话实例对象(sess)
-        :param sess_new: 新会话实例对象(sess)
         :param file_suffix: type= str, 存储模型的文件名后缀
-        :param ops: 节点序列（含初始输入节点x）
+        :param ops: iterable, 节点序列（含初始输入节点x）
         '''
         self.__sess_ori = sess_ori
-        self.__sess_new = sess_new
         self.__pb_file_path = os.getcwd() #获取pb文件保存路径前缀
         self.__file_suffix = file_suffix
         self.__ops = ops
@@ -131,7 +129,7 @@ class SaveImport_model:
                                                                    self.__sess_ori.graph_def,
                                                                    output_node_names= output_node_names)
         # 写入序列化的pb文件
-        with tf.gfile.FastGFile(self.__pb_file_path + 'model.pb', mode='wb') as f:
+        with tf.gfile.FastGFile(self.__pb_file_path + '\\' + 'model.pb', mode='wb') as f:
             f.write(constant_graph.SerializeToString())
 
         # Builds the SavedModel protocol buffer and saves variables and assets
@@ -147,18 +145,20 @@ class SaveImport_model:
         for i in output_node_names:
             print('节点名称为:' + i)
 
-    def use_pb(self):
+    def use_pb(self, sess_new, ops_name):
         '''
         将计算图从指定文件夹导入至工程
+        :param sess_new: 待导入节点的新会话对象
+        :param ops_name: iterable, 待导入节点名
         :return: 模型节点序列
         '''
         # Loads the model from a SavedModel as specified by tags
-        tf.saved_model.loader.load(self.__sess_new, ['cpu_server_1'], self.__pb_file_path + self.__file_suffix)
+        tf.saved_model.loader.load(sess_new, ['cpu_server_1'], self.__pb_file_path + self.__file_suffix)
 
         # Returns the Tensor with the given name
         # 名称都为'{output_name}: output_index'格式
-        ops = [self.__sess_new.graph.get_tensor_by_name('{op_name}'.format(op_name = per_op.op.name))
-               for per_op in self.__ops] #ops序列第一个值为初始化节点x
+        ops = [sess_new.graph.get_tensor_by_name('{op_name}:0'.format(op_name = per_op))
+               for per_op in ops_name] #ops序列第一个值为初始化节点x
         return ops
 
 

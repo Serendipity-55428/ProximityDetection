@@ -124,7 +124,7 @@ def cnn_mode():
         with tf.name_scope('cnn_output'):
             # 预测半径
             r_cnn = tf.matmul(cnn_output, w_cnn) + b_cnn
-            relu_r_cnn = tf.nn.relu(r_cnn)
+            relu_r_cnn = tf.nn.relu(r_cnn) #此处可以根据实验结果去掉或者添加relu，如果去掉，pb保存代码中相应也需要修改
         with tf.name_scope('loss-optimize-evaluation-acc'):
             # 代价函数、优化函数、评价指标
             loss_cnn = tf.reduce_mean(tf.square(relu_r_cnn - y))
@@ -151,7 +151,7 @@ def cnn_mode():
         # 记录折数
         fold = 0
         # 总训练轮数
-        epoch_all = 10000
+        epoch_all = 1
         # 设定所有折在cnn子学习器最终的预测值
         first_sub_cnn_pred = np.zeros(dtype=np.float32, shape=([1]))
         # 将数据集划分为训练集和测试集
@@ -162,7 +162,8 @@ def cnn_mode():
                 # 以一定批次读入某一折数据进行训练
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
                     # 所有训练数据每折各个批次的模型参数摘要汇总
-                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_cnn: 1e-4})
+                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True,
+                                                         learning_rate_cnn: 1e-4})
                     _ = sess.run(optimize_cnn,
                                  feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True, learning_rate_cnn: 1e-4})
                     summary_visualization.add_summary(summary_writer=summary_writer, summary=summary,
@@ -178,6 +179,9 @@ def cnn_mode():
                 (first_sub_cnn_pred, acc_cnn_))
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
+        # 将最终训练好的模型保存为pb文件
+        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\cnn_model', ops=(relu_r_cnn,))
+        savemodel.save_pb()
 
     p_cnn = r'F:\ProximityDetection\Stacking\cnn_pred.pickle'
     SaveFile(data=first_sub_cnn_pred, savepickle_p=p_cnn)
@@ -211,7 +215,7 @@ def rnn_mode():
             summary_visualization.variable_summaries(var= b_rnn, name= 'b')
             # 预测半径
             r_rnn = tf.matmul(rnn_output, w_rnn) + b_rnn
-            relu_r_rnn = tf.nn.relu(r_rnn)
+            relu_r_rnn = tf.nn.relu(r_rnn) #此处可以根据实验结果添加或者去掉relu，如果去掉，需要在pb保存时变换相应的保存节点
         with tf.name_scope('loss-optimize-evaluation-acc'):
             # 代价函数、优化函数、评价指标
             loss_rnn = tf.reduce_mean(tf.square(relu_r_rnn - y))
@@ -238,7 +242,7 @@ def rnn_mode():
         # 记录折数
         fold = 0
         # 总训练轮数
-        epoch_all = 10000
+        epoch_all = 1
         # 设定所有折在cnn子学习器最终的预测值
         first_sub_rnn_pred = np.zeros(dtype=np.float32, shape=([1]))
         # 将数据集划分为训练集和测试集
@@ -264,6 +268,9 @@ def rnn_mode():
                 (first_sub_rnn_pred, acc_rnn_))
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
+        # 将最终训练好的模型保存为pb文件
+        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\rnn_model', ops=(relu_r_rnn,))
+        savemodel.save_pb()
 
     p_rnn = r'F:\ProximityDetection\Stacking\rnn_pred.pickle'
     SaveFile(data=first_sub_rnn_pred, savepickle_p=p_rnn)
@@ -343,7 +350,7 @@ def fnn_mode():
         # 记录折数
         fold = 0
         # 总训练轮数
-        epoch_all = 10000
+        epoch_all = 1
         # 将数据集划分为训练集和测试集
         for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=5):
             for epoch in range(epoch_all):
@@ -366,6 +373,9 @@ def fnn_mode():
 
             fold += 1
         summary_visualization.summary_close(summary_writer= summary_writer)
+        #将最终训练好的模型保存为pb文件
+        savemodel = SaveImport_model(sess_ori= sess, file_suffix= '\\fc_model', ops= (fc_output,))
+        savemodel.save_pb()
 
 if __name__ == '__main__':
     cnn_mode()
