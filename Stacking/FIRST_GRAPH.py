@@ -180,7 +180,7 @@ def cnn_mode():
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
         # 将最终训练好的模型保存为pb文件
-        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\cnn_model', ops=(relu_r_cnn,))
+        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\cnn_model', ops=(relu_r_cnn, x, bn_istraining), usefulplaceholder_count= 2)
         savemodel.save_pb()
 
     p_cnn = r'F:\ProximityDetection\Stacking\cnn_pred.pickle'
@@ -269,7 +269,7 @@ def rnn_mode():
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
         # 将最终训练好的模型保存为pb文件
-        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\rnn_model', ops=(relu_r_rnn,))
+        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\rnn_model', ops=(relu_r_rnn, x), usefulplaceholder_count= 1)
         savemodel.save_pb()
 
     p_rnn = r'F:\ProximityDetection\Stacking\rnn_pred.pickle'
@@ -374,10 +374,10 @@ def fnn_mode():
             fold += 1
         summary_visualization.summary_close(summary_writer= summary_writer)
         #将最终训练好的模型保存为pb文件
-        savemodel = SaveImport_model(sess_ori= sess, file_suffix= '\\fc_model', ops= (fc_output,))
+        savemodel = SaveImport_model(sess_ori= sess, file_suffix= '\\fc_model', ops= (fc_output,x), usefulplaceholder_count= 1)
         savemodel.save_pb()
 
 if __name__ == '__main__':
-    cnn_mode()
+    # cnn_mode()
     # rnn_mode()
-    # fnn_mode()
+    fnn_mode()
