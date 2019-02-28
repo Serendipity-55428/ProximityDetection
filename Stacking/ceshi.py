@@ -13,4 +13,19 @@ import tensorflow as tf
 import numpy as np
 import os.path
 import os
-print(os.getcwd())
+def fun():
+    a = 1
+
+    def fun1(fun_2):
+        fun_2()
+        return fun_2
+
+    def fun_2():
+        print(3)
+
+    fun1(fun_2)
+
+
+if __name__ == '__main__':
+    fun()
+

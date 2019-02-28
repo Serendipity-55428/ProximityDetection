@@ -12,7 +12,7 @@
 from AllNet import CNN, RNN, FNN
 from TestEvaluation import Evaluation
 from DataGenerate import data_stepone, data_steptwo, second_dataset
-from Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model
+from Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model, SaveRestore_model
 import tensorflow as tf
 import numpy as np
 import os
@@ -276,9 +276,11 @@ def rnn_mode():
     SaveFile(data=first_sub_rnn_pred, savepickle_p=p_rnn)
 
 #fnn模块################################################################
-def fnn_mode():
+def fnn_mode(training_time, is_finishing):
     '''
     fnn计算图
+    :param training_time: int, 计算图间断训练次数
+    :param is_finishing: bool, 是否结束训练并输出pb文件
     :return: None
     '''
     FNN_graph = tf.Graph()
@@ -343,6 +345,12 @@ def fnn_mode():
 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph=FNN_graph) as sess:
         sess.run(init)
+        # 建立checkpoint节点保存对象
+        saverestore_model = SaveRestore_model(sess=sess, save_file_name='fnn', max_to_keep=1)
+        saver = saverestore_model.saver_build()
+        if training_time != 0:
+            # 导入checkpoint节点，继续训练
+            saverestore_model.restore_checkpoint(saver=saver)
         #摘要文件
         summary_writer = summary_visualization.summary_file(p= 'logs/', graph= sess.graph)
         # 导入数据
@@ -370,14 +378,20 @@ def fnn_mode():
                         print('训练集精度为: %s' % acc_fnn_train)
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_fnn_, fold, acc_fnn_))
                         flag = 0
+                #保存checkpoint节点
+                saverestore_model.save_checkpoint(saver= saver, epoch= epoch, is_recording_max_acc= False)
+
 
             fold += 1
         summary_visualization.summary_close(summary_writer= summary_writer)
-        #将最终训练好的模型保存为pb文件
-        savemodel = SaveImport_model(sess_ori= sess, file_suffix= '\\fc_model', ops= (fc_output,x), usefulplaceholder_count= 1)
-        savemodel.save_pb()
+        if is_finishing:
+            # 将最终训练好的模型保存为pb文件
+            savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\fc_model', ops=(fc_output, x),
+                                         usefulplaceholder_count=1)
+            savemodel.save_pb()
+
 
 if __name__ == '__main__':
     # cnn_mode()
     # rnn_mode()
-    fnn_mode()
+    fnn_mode(training_time= 3, is_finishing= False)

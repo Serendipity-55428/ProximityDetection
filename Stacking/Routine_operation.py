@@ -189,20 +189,33 @@ class SaveRestore_model:
         saver = tf.train.Saver(max_to_keep= self.__max_to_keep)
         return saver
 
-    def save_checkpoint(self, saver, is_recording_max_acc, is_writing, max_acc= 0, recording_file_name= None):
+    def save_checkpoint(self, saver, epoch, is_recording_max_acc, max_acc= 0, curr_acc= 0):
         '''
         生成checkpoint节点
         :param saver: Saver实例对象
+        :param epoch: epoch值
         :param is_recording_max_acc: bool, 选择是否需要在出现最大精确率时候记录max_to_keep次精确度的值和epoch值
-        :param is_writing: bool, 选择是否将记录的信息写入指定文件
         :param max_acc: 最大精确度,默认为0（只有在is_recording_max_acc为True时才指定）
-        :param recording_file_name: str, 记录信息文件保存路径（只有在is_writing为True时才指定）
+        :param curr_acc: 当前精确度,默认为0（只有在is_recording_max_acc为True时才指定）
         :return: None
         '''
-        # def
-        # if is_writing:
-        #     f = open(recording_file_name, 'w')
-        pass
+        def save_ckpt(sess, saver, ckpt_name, global_step):
+            '''
+            保存ckpt节点
+            :param sess: 会话实例对象
+            :param saver: Saver实例对象
+            :param ckpt_name: ckpt节点名
+            :param global_step: epoch值
+            :return: None
+            '''
+            ckpt_path = r'ckpt/%s.ckpt' % ckpt_name
+            saver.save(sess, ckpt_path, global_step= global_step)
+
+        if is_recording_max_acc:
+            if curr_acc > max_acc:
+                save_ckpt(self.__sess, saver, self.__save_file_name, global_step= epoch)
+        else:
+            save_ckpt(self.__sess, saver, self.__save_file_name, global_step= epoch)
 
     def restore_checkpoint(self, saver, checkpoint_file= 'ckpt/'):
         '''
