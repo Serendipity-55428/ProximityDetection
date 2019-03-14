@@ -19,7 +19,7 @@ import os
 import pickle
 
 #cnn模块################################################################
-def cnn_mode():
+def cnn_mode(training_time, is_finishing):
     '''
     cnn计算图
     :return: None
@@ -143,6 +143,12 @@ def cnn_mode():
 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph=CNN_graph) as sess:
         sess.run(init)
+        # 建立checkpoint节点保存对象
+        saverestore_model = SaveRestore_model(sess=sess, save_file_name='cnn', max_to_keep=1)
+        saver = saverestore_model.saver_build()
+        if training_time != 0:
+            # 导入checkpoint节点，继续训练
+            saverestore_model.restore_checkpoint(saver=saver)
         # 摘要文件
         summary_writer = summary_visualization.summary_file(p='logs/', graph=sess.graph)
         # 导入数据
@@ -173,22 +179,25 @@ def cnn_mode():
                         acc_cnn_ = sess.run(acc_cnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis], bn_istraining: False})
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_cnn_, fold, acc_cnn_))
                         flag = 0
+                # 保存checkpoint节点
+                saverestore_model.save_checkpoint(saver=saver, epoch=epoch, is_recording_max_acc=False)
 
             # 记录循环多次后该折子学习器最终预测结果
             first_sub_cnn_pred = acc_cnn_ if first_sub_cnn_pred.any() == 0 else np.vstack(
                 (first_sub_cnn_pred, acc_cnn_))
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
-        # 将最终训练好的模型保存为pb文件
-        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\cnn_model', ops=(relu_r_cnn, x, bn_istraining), usefulplaceholder_count= 2)
-        savemodel.save_pb()
+        if is_finishing:
+            # 将最终训练好的模型保存为pb文件
+            savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\cnn_model', ops=(relu_r_cnn, x, bn_istraining),
+                                         usefulplaceholder_count=2)
+            savemodel.save_pb()
 
     p_cnn = r'F:\ProximityDetection\Stacking\cnn_pred.pickle'
     SaveFile(data=first_sub_cnn_pred, savepickle_p=p_cnn)
 
-
 #rnn模块################################################################
-def rnn_mode():
+def rnn_mode(training_time, is_finishing):
     '''
     rnn计算图
     :return: None
@@ -234,6 +243,12 @@ def rnn_mode():
 
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph=RNN_graph) as sess:
         sess.run(init)
+        # 建立checkpoint节点保存对象
+        saverestore_model = SaveRestore_model(sess=sess, save_file_name='rnn', max_to_keep=1)
+        saver = saverestore_model.saver_build()
+        if training_time != 0:
+            # 导入checkpoint节点，继续训练
+            saverestore_model.restore_checkpoint(saver=saver)
         # 摘要文件
         summary_writer = summary_visualization.summary_file(p='logs/', graph=sess.graph)
         # 导入数据
@@ -262,15 +277,20 @@ def rnn_mode():
                         acc_rnn_ = sess.run(acc_rnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis]})
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_rnn_, fold, acc_rnn_))
                         flag = 0
+                # 保存checkpoint节点
+                saverestore_model.save_checkpoint(saver=saver, epoch=epoch, is_recording_max_acc=False)
 
             # 记录循环多次后该折子学习器最终预测结果
             first_sub_rnn_pred = acc_rnn_ if first_sub_rnn_pred.any() == 0 else np.vstack(
                 (first_sub_rnn_pred, acc_rnn_))
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
-        # 将最终训练好的模型保存为pb文件
-        savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\rnn_model', ops=(relu_r_rnn, x), usefulplaceholder_count= 1)
-        savemodel.save_pb()
+        if is_finishing:
+            # 将最终训练好的模型保存为pb文件
+            savemodel = SaveImport_model(sess_ori=sess, file_suffix='\\rnn_model', ops=(relu_r_rnn, x),
+                                         usefulplaceholder_count=1)
+            savemodel.save_pb()
+
 
     p_rnn = r'F:\ProximityDetection\Stacking\rnn_pred.pickle'
     SaveFile(data=first_sub_rnn_pred, savepickle_p=p_rnn)
@@ -392,6 +412,6 @@ def fnn_mode(training_time, is_finishing):
 
 
 if __name__ == '__main__':
-    # cnn_mode()
-    # rnn_mode()
-    fnn_mode(training_time= 3, is_finishing= False)
+    cnn_mode(training_time= 0, is_finishing= False)
+    # rnn_mode(training_time= 1, is_finishing= False)
+    # fnn_mode(training_time= 3, is_finishing= False)

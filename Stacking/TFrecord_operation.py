@@ -14,7 +14,6 @@
 #若样本少可以只存为一个TFRecord文件，一次读取该文件
 #若样本量大可以存储为多个TFRecord文件，采用多线程批次读取这些TFRecord文件
 ###################################
-
 import tensorflow as tf
 import numpy as np
 
