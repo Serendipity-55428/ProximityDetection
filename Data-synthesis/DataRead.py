@@ -13,6 +13,8 @@ import os.path
 import pickle
 import numpy as np
 import xlwt
+import pandas as pd
+from Stacking.Routine_operation import LoadFile
 
 def GeneratorData(type, filename_prefix):
     '''
@@ -110,69 +112,61 @@ def SaveFile(data, savepickle_p):
 
 
 if __name__ == '__main__':
-    type= 1
-    filename_prefix = r'C:\Users\xiaosong\Desktop\pny'
-    dataset = GeneratorData(type= type, filename_prefix= filename_prefix)
-    zero_r, nonzero_r = 0, 0
-    r = dataset[:, -1]
-    for i in r:
-        if i == 0.01:
-            zero_r += 1
-    nonzero_r = len(r) - zero_r
-    print('最优半径为0.01个数: %s \n 最优半径不为0.01的个数: %s' % (zero_r, nonzero_r))
-    print(dataset)
-    print(dataset.shape)
-    print(dataset.dtype)
-    #保存文件到Excel
-    save_p = r'C:\Users\xiaosong\Desktop\pny\datasets.xlsx'
-    Numpy2Excel(data= dataset, save_p= save_p)
+    rng = np.random.RandomState(2)
+    #生成pny数据
+    # type= 1
+    # filename_prefix = r'C:\Users\xiaosong\Desktop\pny'
+    # dataset = GeneratorData(type= type, filename_prefix= filename_prefix)
+    # rng.shuffle(dataset)
 
-    #对单个文件进行测试
-    # dataframe = np.zeros(shape=(1, 25))
-    # # 前4个特征列表，需要和文件中20个特征、1个最优半径结合后转换为ndarray类型向量
-    # sub_feature = [1000, 28.593955, 5, 1]
-    # # 数据文件命名格式：type_movingObjects_maxSpeed_friends_Threshold
-    # p = r'D:\proximityOnTimeAwareRN_generateFriends\%d_%d_%s_%d_%d.dat' % \
-    #     (1, 1000, 'v3', 5, 1)
-    # with open(p, 'r') as f:
-    #     # 将文件转为字符串类型，切片可以自动消除‘\n'字符
-    #     file = f.readlines()
-    #     # print(file[2][-2])
-    #     for ts in range(5):
-    #         # 设置在各个r组内指向每一个cost的指针
-    #         inside_point = 5 + ts * 3
-    #         # 定义全局指针
-    #         point = inside_point
-    #         # 初始化存储每20倍数时刻最小代价值索引,初始化指向point所指向的位置
-    #         min_cost = point
-    #         while point <= 255:
-    #             if float(file[point][7:-1]) <= float(file[min_cost][7:-1]):
-    #                 min_cost = point
-    #             # 指向下一个r中同一时间的cost
-    #             point += 17
-    #
-    #         # min_cost位置回退2便指向对应20个密度特征，回退3便指向当前最优半径
-    #         twenty_feature = file[min_cost - 2][:-2]
-    #         twenty_feature = twenty_feature.split(' ')
-    #         twenty_feature = [float(i) for i in twenty_feature] if len([float(i) for i in twenty_feature]) == 20 else \
-    #             [float(i) for i in twenty_feature[1:]]
-    #         # 拼接特征向量
-    #         sub_feature.extend(twenty_feature)
-    #         sub_feature.append(float(file[min_cost - (ts + 1) * 3][4:-1]))
-    #         # print(len(sub_feature))
-    #         dataframe = np.array(sub_feature) if dataframe.any() == 0 else \
-    #             np.vstack((dataframe, np.array(sub_feature)[np.newaxis, :]))
-    #
-    #         # 临时存储列表删除后面拼接部分
-    #         sub_feature = [1000, 28.593955, 5, 1]
-    #
-    # print(dataframe.dtype)
+    #检查最优半径为0.01的数量
+    # zero_r, nonzero_r = 0, 0
+    # r = dataset[:, -1]
+    # for i in r:
+    #     if i == 0.01:
+    #         zero_r += 1
+    # nonzero_r = len(r) - zero_r
+    # print('最优半径为0.01个数: %s \n 最优半径不为0.01的个数: %s' % (zero_r, nonzero_r))
+    # # print(dataset)
+    # print(dataset.shape)
+    # print(dataset.dtype)
 
+    #保存文件到.xlsx/.pickle
+    save_pickle = r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_all.pickle'
+    save_xlsx = r'F:\ProximityDetection\Stacking\dataset_PNY\datasets.xlsx'
+    # Numpy2Excel(data= dataset, save_p= save_xlsx)
+    # SaveFile(data=dataset, savepickle_p=save_pickle)
 
-
-
-
-
+    #划分最优半径含0.01和不含0.01的数据
+    # data_all_ = LoadFile(p=save_pickle)
+    # data_all = pd.DataFrame(data_all_)
+    # # print(data_all)
+    # data_no_noise = data_all.ix[data_all[24] != 0.01]
+    # data_noise = data_all.ix[data_all[24] == 0.01]
+    # data_no_noise = np.array(data_no_noise)
+    # data_noise = np.array(data_noise)
+    # print(np.array(data_no_noise).shape, np.array(data_noise).shape)
+    # SaveFile(data=data_noise, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_noise.pickle')
+    # SaveFile(data=data_no_noise, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_no_noise.pickle')
+    data_noise = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_noise.pickle')
+    data_no_noise = LoadFile(r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_no_noise.pickle')
+    # print(data_noise.shape, data_no_noise.shape)
+    #制作数量为10000的数据集，无噪声数据集数量不够可以用少量噪声数据集进行填充
+    # data_train = np.vstack((data_no_noise, data_noise[:(10000-data_no_noise.shape[0]), :]))
+    # rng.shuffle(data_train)
+    # SaveFile(data=data_train, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
+    # print(data_train.shape)
+    #制作平均密度序列的fft变换膜值序列
+    data_fft_noise = np.hstack((np.abs(np.fft.fft(a=data_noise[:, :20], n=100, axis=1)),data_noise[:, 20:]))
+    data_fft_no_noise = np.hstack((np.abs(np.fft.fft(a=data_no_noise[:, :20], n=100, axis=1)),data_no_noise[:, 20:]))
+    # print(data_fft_noise.shape, data_fft_no_noise.shape)
+    # SaveFile(data=data_fft_noise, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_noise.pickle')
+    # SaveFile(data=data_fft_no_noise, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_no_noise.pickle')
+    #制作数量为10000的fft变换取模后的数据集
+    data_fft = np.vstack((data_fft_no_noise, data_fft_noise[:(10000-data_fft_no_noise.shape[0]), :]))
+    rng.shuffle(data_fft)
+    SaveFile(data=data_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
+    print(data_fft.shape)
 
 
 

@@ -9,10 +9,10 @@
 @time: 2019/2/20 21:48
 @desc:
 '''
-from AllNet import CNN, RNN, FNN
-from TestEvaluation import Evaluation
-from DataGenerate import data_stepone, data_steptwo, second_dataset
-from Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model, SaveRestore_model
+from Stacking.AllNet import CNN, RNN, FNN
+from Stacking.TestEvaluation import Evaluation
+from Stacking.DataGenerate import data_stepone, data_steptwo, second_dataset
+from Stacking.Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model, SaveRestore_model
 import tensorflow as tf
 import numpy as np
 import os
@@ -211,7 +211,7 @@ def rnn_mode(training_time, is_finishing):
             learning_rate_rnn = tf.placeholder(dtype=tf.float32, name='learning_rate_rnn')
         with tf.name_scope('rnn'):
             rnn = RNN(x=x, max_time=5, num_units=128)
-            rnn_outputs, _ = rnn.dynamic_rnn(style='LSTM', output_keep_prob=0.8)
+            rnn_outputs, _ = rnn.dynamic_rnn(style='LSTM', output_keep_prob=1.0)
             rnn_output = rnn_outputs[:, -1, :]
         with tf.name_scope('rnn-output'):
             # rnn投影核
@@ -252,14 +252,15 @@ def rnn_mode(training_time, is_finishing):
         # 摘要文件
         summary_writer = summary_visualization.summary_file(p='logs/', graph=sess.graph)
         # 导入数据
-        p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data.pickle'
-        dataset_ori = LoadFile(p=p_dataset_ori)
+        p_dataset_ori = r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle'
+        # dataset_ori = LoadFile(p=p_dataset_ori)
         # 记录折数
         fold = 0
         # 总训练轮数
-        epoch_all = 1
+        epoch_all = 10000
         # 设定所有折在cnn子学习器最终的预测值
         first_sub_rnn_pred = np.zeros(dtype=np.float32, shape=([1]))
+        acc_rnn_ = 0
         # 将数据集划分为训练集和测试集
         for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=5):
             for epoch in range(epoch_all):
@@ -268,8 +269,8 @@ def rnn_mode(training_time, is_finishing):
                 # 以一定批次读入某一折数据进行训练
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
                     # 所有训练数据每折各个批次的模型参数摘要汇总
-                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-4})
-                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-4})
+                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-3})
+                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-3})
                     summary_visualization.add_summary(summary_writer=summary_writer, summary=summary,
                                                       summary_information=epoch)
                     if (epoch % 100) == 0 and flag == 1:
@@ -412,6 +413,6 @@ def fnn_mode(training_time, is_finishing):
 
 
 if __name__ == '__main__':
-    cnn_mode(training_time= 0, is_finishing= False)
-    # rnn_mode(training_time= 1, is_finishing= False)
+    # cnn_mode(training_time= 0, is_finishing= False)
+    rnn_mode(training_time= 0, is_finishing= False)
     # fnn_mode(training_time= 3, is_finishing= False)

@@ -9,7 +9,7 @@
 @time: 2019/2/20 21:51
 @desc:
 '''
-from Routine_operation import SaveFile, LoadFile
+from Stacking.Routine_operation import SaveFile, LoadFile
 import numpy as np
 import os
 import pickle
@@ -28,9 +28,9 @@ def data_stepone(p_dataset_ori, padding, proportion):
         zeros = np.zeros(dtype= np.float32, shape= ([dataset_ori.shape[0], 5]))
         dataset_ori = np.hstack((dataset_ori[:, :-1], zeros, dataset_ori[:, -1][:, np.newaxis]))
     batch_size = dataset_ori.shape[0] // proportion
-    for i in range(0, dataset_ori.shape[0]-batch_size+1, batch_size):
-        train = np.vstack((dataset_ori[:i, :], dataset_ori[i+batch_size:, :]))
-        test = dataset_ori[i: i+batch_size]
+    for i in range(0, dataset_ori.shape[0], batch_size): #取一折为测试集，剩下组合为训练集
+        train = np.vstack((dataset_ori[:i, 4:], dataset_ori[i+batch_size:, 4:])) #只用后20个密度特征
+        test = dataset_ori[i:i+batch_size, 4:]
         yield train, test
 
 def data_steptwo(train_data, batch_size):
@@ -40,8 +40,11 @@ def data_steptwo(train_data, batch_size):
     :param batch_size: 输出批次大小
     :return: 训练数据批次特征、标签
     '''
-    for i in range(0, train_data.shape[0]-batch_size+1, batch_size):
-        yield train_data[i:i+batch_size, :-1], train_data[i:i+batch_size, -1]
+    for i in range(0, train_data.shape[0], batch_size):
+        feature = train_data[i:i+batch_size, :-1]
+        # feature = (feature - np.min(feature, axis=0)) / (np.max(feature, axis=0) - np.min(feature, axis=0))
+        # print(feature_norm.max())
+        yield feature, train_data[i:i+batch_size, -1]
 
 def second_dataset(dataset_ori, pred):
     '''
