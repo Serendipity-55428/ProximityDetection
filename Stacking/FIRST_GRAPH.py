@@ -308,12 +308,12 @@ def fnn_mode(training_time, is_finishing):
     with FNN_graph.as_default():
         summary_visualization = Summary_Visualization()
         with tf.name_scope('placeholder'):
-            x = tf.placeholder(dtype=tf.float32, shape=(None, 6), name='xt')
+            x = tf.placeholder(dtype=tf.float32, shape=(None, 24), name='xt')
             y = tf.placeholder(dtype=tf.float32, shape=(None, 1), name='yt')
             learning_rate_fnn = tf.placeholder(dtype=tf.float32, name='learning_rate_fnn')
 
         h_size = {
-            'w1_insize': 6,
+            'w1_insize': 24,
             'w1_outsize': 100,
             'w2_insize': 100,
             'w2_outsize': 200,
@@ -324,17 +324,17 @@ def fnn_mode(training_time, is_finishing):
         with tf.name_scope('w-b'):
             h_para = (
                 (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w1_insize'], h_size['w1_outsize']]),
-                                                               mean=0, stddev=1), dtype=tf.float32, name='w1'),
+                                                               mean=0, stddev=0.1), dtype=tf.float32, name='w1'),
                  tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w1_outsize']]),
-                                                               mean=0, stddev=1), dtype=tf.float32, name='b1')),
+                                                               mean=0, stddev=0.1), dtype=tf.float32, name='b1')),
                 (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w2_insize'], h_size['w2_outsize']]),
-                                                               mean=0, stddev=1), dtype=tf.float32, name='w2'),
+                                                               mean=0, stddev=0.1), dtype=tf.float32, name='w2'),
                  tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w2_outsize']]),
-                                                               mean=0, stddev=1), dtype=tf.float32, name='b2')),
+                                                               mean=0, stddev=0.1), dtype=tf.float32, name='b2')),
                 (tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w3_insize'], h_size['w3_outsize']]),
-                                                               mean=0, stddev=1), dtype=tf.float32, name='w3'),
+                                                               mean=0, stddev=0.1), dtype=tf.float32, name='w3'),
                  tf.Variable(initial_value=tf.truncated_normal(shape=([h_size['w3_outsize']]),
-                                                               mean=0, stddev=1), dtype=tf.float32, name='b3')),
+                                                               mean=0, stddev=0.1), dtype=tf.float32, name='b3')),
             )
             #对所有连接参数和偏置量制作摘要
             for i in (i for i in range(3)):
@@ -354,7 +354,7 @@ def fnn_mode(training_time, is_finishing):
             optimize_fnn = tf.train.AdamOptimizer(learning_rate=learning_rate_fnn).minimize(loss_fnn)
             evaluation_fnn = Evaluation(one_hot=False, logit=None, label=None, regression_label=y,
                                         regression_pred=fc_output)
-            acc_fnn = evaluation_fnn.acc_regression(Threshold=0.9)  # 评价指标中的阈值可以修改
+            acc_fnn = evaluation_fnn.acc_regression(Threshold=0.1)  # 评价指标中的阈值可以修改
             #添加摘要acc
             # summary_visualization.scalar_summaries(arg= {'acc': acc_fnn})
 
@@ -375,13 +375,13 @@ def fnn_mode(training_time, is_finishing):
         #摘要文件
         summary_writer = summary_visualization.summary_file(p= 'logs/', graph= sess.graph)
         # 导入数据
-        p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data_2.pickle'
+        p_dataset_ori = r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle'
         # 记录折数
         fold = 0
         # 总训练轮数
-        epoch_all = 1
+        epoch_all = 10000
         # 将数据集划分为训练集和测试集
-        for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=5):
+        for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=10):
             for epoch in range(epoch_all):
                 # 设定标志在100的倍数epoch时只输出一次结果
                 flag = 1
@@ -395,8 +395,8 @@ def fnn_mode(training_time, is_finishing):
                     if (epoch % 100) == 0 and flag == 1:
                         loss_fnn_ = sess.run(loss_fnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis]})
                         acc_fnn_ = sess.run(acc_fnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis]})
-                        acc_fnn_train = sess.run(acc_fnn, feed_dict={x:train[:, :-1], y:train[:, -1][:, np.newaxis]})
-                        print('训练集精度为: %s' % acc_fnn_train)
+                        # acc_fnn_train = sess.run(acc_fnn, feed_dict={x:train[:, :-1], y:train[:, -1][:, np.newaxis]})
+                        # print('训练集精度为: %s' % acc_fnn_train)
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_fnn_, fold, acc_fnn_))
                         flag = 0
                 #保存checkpoint节点
@@ -414,5 +414,5 @@ def fnn_mode(training_time, is_finishing):
 
 if __name__ == '__main__':
     # cnn_mode(training_time= 0, is_finishing= False)
-    rnn_mode(training_time= 0, is_finishing= False)
-    # fnn_mode(training_time= 3, is_finishing= False)
+    # rnn_mode(training_time= 0, is_finishing= False)
+    fnn_mode(training_time= 0, is_finishing= False)

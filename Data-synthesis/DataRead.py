@@ -157,17 +157,26 @@ if __name__ == '__main__':
     # SaveFile(data=data_train, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
     # print(data_train.shape)
     #制作平均密度序列的fft变换膜值序列
-    data_fft_noise = np.hstack((np.abs(np.fft.fft(a=data_noise[:, :20], n=100, axis=1)),data_noise[:, 20:]))
-    data_fft_no_noise = np.hstack((np.abs(np.fft.fft(a=data_no_noise[:, :20], n=100, axis=1)),data_no_noise[:, 20:]))
+    # data_fft_noise = np.hstack((np.abs(np.fft.fft(a=data_noise[:, 4:-1], n=100, axis=1)),data_noise[:, :4], data_noise[:, -1][:, np.newaxis]))
+    # data_fft_no_noise = np.hstack((np.abs(np.fft.fft(a=data_no_noise[:, 4:-1], n=100, axis=1)),data_no_noise[:, :4], data_no_noise[:, -1][:, np.newaxis]))
     # print(data_fft_noise.shape, data_fft_no_noise.shape)
     # SaveFile(data=data_fft_noise, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_noise.pickle')
     # SaveFile(data=data_fft_no_noise, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_no_noise.pickle')
     #制作数量为10000的fft变换取模后的数据集
-    data_fft = np.vstack((data_fft_no_noise, data_fft_noise[:(10000-data_fft_no_noise.shape[0]), :]))
-    rng.shuffle(data_fft)
-    SaveFile(data=data_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
-    print(data_fft.shape)
+    # data_fft = np.vstack((data_fft_no_noise, data_fft_noise[:(10000-data_fft_no_noise.shape[0]), :]))
+    # rng.shuffle(data_fft)
+    # SaveFile(data=data_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
+    # print(data_fft.shape)
 
+    #对原始数据和经过傅里叶变换后的数据进行列归一化
+    # data_PNY = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
+    # data_PNY = (data_PNY - np.min(data_PNY, axis=0)) / (np.max(data_PNY, axis=0) - np.min(data_PNY, axis=0))
+    # SaveFile(data=data_PNY, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle')
+
+    #对经过fft变换取模后的数据进行列归一化
+    data_PNY_fft = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
+    data_PNY_fft = (data_PNY_fft - np.min(data_PNY_fft, axis=0)) / (np.max(data_PNY_fft, axis=0) - np.min(data_PNY_fft, axis=0))
+    SaveFile(data=data_PNY_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm.pickle')
 
 
 

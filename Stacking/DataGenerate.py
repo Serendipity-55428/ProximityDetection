@@ -29,8 +29,8 @@ def data_stepone(p_dataset_ori, padding, proportion):
         dataset_ori = np.hstack((dataset_ori[:, :-1], zeros, dataset_ori[:, -1][:, np.newaxis]))
     batch_size = dataset_ori.shape[0] // proportion
     for i in range(0, dataset_ori.shape[0], batch_size): #取一折为测试集，剩下组合为训练集
-        train = np.vstack((dataset_ori[:i, 4:], dataset_ori[i+batch_size:, 4:])) #只用后20个密度特征
-        test = dataset_ori[i:i+batch_size, 4:]
+        train = np.vstack((dataset_ori[:i, :], dataset_ori[i+batch_size:, :])) #只用后20个密度特征
+        test = dataset_ori[i:i+batch_size, :]
         yield train, test
 
 def data_steptwo(train_data, batch_size):
