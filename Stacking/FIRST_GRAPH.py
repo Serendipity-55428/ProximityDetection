@@ -11,7 +11,7 @@
 '''
 from Stacking.AllNet import CNN, RNN, FNN
 from Stacking.TestEvaluation import Evaluation
-from Stacking.DataGenerate import data_stepone, data_steptwo, second_dataset
+from Stacking.DataGenerate import data_stepone, data_stepone_1, data_steptwo, second_dataset
 from Stacking.Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model, SaveRestore_model
 import tensorflow as tf
 import numpy as np
@@ -24,11 +24,13 @@ def cnn_mode(training_time, is_finishing):
     cnn计算图
     :return: None
     '''
+    Learning_RATE = 1e-4
     CNN_graph = tf.Graph()
     with CNN_graph.as_default():
         summary_visualization = Summary_Visualization()
         with tf.name_scope('placeholder'):
-            x = tf.placeholder(dtype=tf.float32, shape=(None, 25), name='xt')
+            x = tf.placeholder(dtype=tf.float32, shape=(None, 24), name='xt')
+            x_combine = tf.placeholder(dtype=tf.float32, shape=(None, 4), name='x_combine')
             y = tf.placeholder(dtype=tf.float32, shape=(None, 1), name='yt')
             bn_istraining = tf.placeholder(dtype=tf.bool, name='bn_istraining')
             learning_rate_cnn = tf.placeholder(dtype=tf.float32, name='learning_rate_cnn')
@@ -36,95 +38,78 @@ def cnn_mode(training_time, is_finishing):
         # 核尺寸
         kernel_size = {
             'w1_edge': 3,
-            'w1_deep': 96,
+            'w1_deep': 64,
             'w2_edge': 3,
-            'w2_deep': 256,
-            'w3_edge': 3,
-            'w3_deep': 384,
-            'w4_edge': 2,
-            'w4_deep': 384,
-            'w5_edge': 1,
-            'w5_deep': 256,
-            'w6_edge': 1,
-            'w6_deep': 96
+            'w2_deep': 64,
+            'w3_edge': 2,
+            'w3_deep': 128,
+
         }
         with tf.name_scope('w'):
             # 核张量
             kernel_para = {
                 'w1_size': tf.Variable(initial_value= tf.truncated_normal(
                     shape= (kernel_size['w1_edge'], kernel_size['w1_edge'], 1, kernel_size['w1_deep']),
-                    mean= 0, stddev= 1), dtype= tf.float32),
+                    mean= 0, stddev= 0.1), dtype= tf.float32),
                 'w2_size': tf.Variable(initial_value= tf.truncated_normal(
                     shape= (kernel_size['w2_edge'], kernel_size['w2_edge'], kernel_size['w1_deep'], kernel_size['w2_deep']),
-                    mean= 0, stddev= 1), dtype= tf.float32),
+                    mean= 0, stddev= 0.1), dtype= tf.float32),
                 'w3_size': tf.Variable(initial_value=tf.truncated_normal(
                     shape=(kernel_size['w3_edge'], kernel_size['w3_edge'], kernel_size['w2_deep'], kernel_size['w3_deep']),
-                    mean=0, stddev=1), dtype=tf.float32),
-                'w4_size': tf.Variable(initial_value=tf.truncated_normal(
-                    shape=(kernel_size['w4_edge'], kernel_size['w4_edge'], kernel_size['w3_deep'], kernel_size['w4_deep']),
-                    mean=0, stddev=1), dtype=tf.float32),
-                'w5_size': tf.Variable(initial_value=tf.truncated_normal(
-                    shape=(kernel_size['w5_edge'], kernel_size['w5_edge'], kernel_size['w4_deep'], kernel_size['w5_deep']),
-                    mean=0, stddev=1), dtype=tf.float32),
-                'w6_size': tf.Variable(initial_value=tf.truncated_normal(
-                    shape=(kernel_size['w6_edge'], kernel_size['w6_edge'], kernel_size['w5_deep'], kernel_size['w6_deep']),
-                    mean=0, stddev=1), dtype=tf.float32),
+                    mean=0, stddev=0.1), dtype=tf.float32),
             }
             #对所有卷积核w和b写入文件摘要
-            for i in (i for i in range(6)):
+            for i in (i for i in range(3)):
                 summary_visualization.variable_summaries(var= kernel_para['w%s_size' % (i+1)], name= 'w%s' % (i+1))
 
         # 卷积层(数据特征维度：20->5*5)
         with tf.name_scope('cnn'):
             cnn_1 = CNN(x=x, w_conv=kernel_para['w1_size'], stride_conv=1, stride_pool=2)
-            # 将向量x转换为5*5方形张量
-            x_reshape = CNN.reshape(f_vector=x, new_shape=(-1, 5, 5, 1))
+            # 将向量x转换为4*5方形张量
+            x_reshape = CNN.reshape(f_vector=x, new_shape=(-1, 4, 5, 1))
             # 1
             layer_1 = cnn_1.convolution(input=x_reshape)
             relu1 = tf.nn.relu(layer_1)
-            bn1 = cnn_1.batch_normoalization(input=relu1, is_training=bn_istraining)
+            bn1 = cnn_1.batch_normoalization(input=relu1, is_training=bn_istraining) #(-1, 4, 5, 64)
             # 2
             cnn_2 = CNN(x=bn1, w_conv=kernel_para['w2_size'], stride_conv=1, stride_pool=2)
             layer_2 = cnn_2.convolution(input=bn1)
             relu2 = tf.nn.relu(layer_2)
-            bn2 = cnn_2.batch_normoalization(input=relu2, is_training=bn_istraining)
+            bn2 = cnn_2.batch_normoalization(input=relu2, is_training=bn_istraining) #(-1, 4, 5, 64)
+            #pool
+            pool1 = cnn_2.pooling(pool_fun=tf.nn.max_pool, input=bn2)
             # 3
             cnn_3 = CNN(x=bn2, w_conv=kernel_para['w3_size'], stride_conv=1, stride_pool=2)
             layer_3 = cnn_3.convolution(input=bn2)
             relu3 = tf.nn.relu(layer_3)
-            bn3 = cnn_3.batch_normoalization(input=relu3, is_training=bn_istraining)
+            bn3 = cnn_3.batch_normoalization(input=relu3, is_training=bn_istraining) #(-1, 2, 3, 128)
             # pool
-            pool1 = cnn_3.pooling(pool_fun=tf.nn.max_pool, input=bn3)
-            # 4
-            cnn_4 = CNN(x=pool1, w_conv=kernel_para['w4_size'], stride_conv=1, stride_pool=2)
-            layer_4 = cnn_4.convolution()
-            relu4 = tf.nn.relu(layer_4)
-            bn4 = cnn_4.batch_normoalization(input=relu4, is_training=bn_istraining)
-            # 5
-            cnn_5 = CNN(x=bn4, w_conv=kernel_para['w5_size'], stride_conv=1, stride_pool=2)
-            layer_5 = cnn_5.convolution()
-            relu5 = tf.nn.relu(layer_5)
-            bn5 = cnn_5.batch_normoalization(input=relu5, is_training=bn_istraining)
-            # pool
-            pool2 = cnn_5.pooling(pool_fun=tf.nn.max_pool, input=bn5)
-            # 6
-            cnn_6 = CNN(x=pool2, w_conv=kernel_para['w6_size'], stride_conv=1, stride_pool=2)
-            layer_6 = cnn_6.convolution()
-            relu6 = tf.nn.relu(layer_6)
-            bn6 = cnn_6.batch_normoalization(input=relu6, is_training=bn_istraining)
-            # 经过6层卷积运算后张量维度为：(-1, 2, 2, 96)
+            pool1 = cnn_3.pooling(pool_fun=tf.nn.max_pool, input=bn3) #(-1, 1, 2, 128)
             # flat
-            bn6_x, bn6_y, bn6_z = bn6.get_shape().as_list()[1:]
-            cnn_output = CNN.reshape(f_vector=bn6, new_shape=(-1, bn6_x * bn6_y * bn6_z))
-            # cnn投影核
-            w_cnn = tf.Variable(initial_value=tf.truncated_normal(shape=(cnn_output.get_shape().as_list()[-1], 1),
-                                                                  mean=0, stddev=1), dtype=tf.float32, name='w_cnn')
-            b_cnn = tf.Variable(initial_value=tf.truncated_normal(shape=([1]), mean=0, stddev=1), dtype=tf.float32,
-                                name='b_cnn')
+            pool1_x, pool1_y, pool1_z = pool1.get_shape().as_list()[1:]
+            cnn_output = CNN.reshape(f_vector=pool1, new_shape=(-1, pool1_x * pool1_y * pool1_z)) #(-1, 1*2*128)
+            #组合剩余4个特征
+            combine = tf.concat(values=(cnn_output, x_combine), axis=1) #(-1, 1*2*128+4)
+            # 全连接部分
+            w_1 = tf.Variable(initial_value=tf.truncated_normal(shape=(combine.get_shape().as_list()[-1], 128),
+                                                                mean=0, stddev=0.1), dtype=tf.float32, name='w_1')
+            b_1 = tf.Variable(initial_value=tf.truncated_normal(shape=([1]), mean=0, stddev=0.1), dtype=tf.float32,
+                              name='b_2')
+            w_2 = tf.Variable(initial_value=tf.truncated_normal(shape=(128, 1), mean=0, stddev=0.1, dtype=tf.float32,
+                                                                name='w_2'))
+            b_2 = tf.Variable(initial_value=tf.truncated_normal(shape=([1]), mean=0, stddev=0.1), dtype=tf.float32,
+                              name='b_2')
+            # 对w和b参数写入文件摘要
+            summary_visualization.variable_summaries(var=w_1, name='w_1')
+            summary_visualization.variable_summaries(var=b_1, name='b_1')
+            summary_visualization.variable_summaries(var=w_2, name='w_2')
+            summary_visualization.variable_summaries(var=b_2, name='b_2')
         with tf.name_scope('cnn_output'):
             # 预测半径
-            r_cnn = tf.matmul(cnn_output, w_cnn) + b_cnn
+            r_cnn = tf.matmul(combine, w_1) + b_1
             relu_r_cnn = tf.nn.relu(r_cnn) #此处可以根据实验结果去掉或者添加relu，如果去掉，pb保存代码中相应也需要修改
+            r_cnn = tf.matmul(r_cnn, w_2) + b_2
+            relu_r_cnn = tf.nn.relu(r_cnn)
         with tf.name_scope('loss-optimize-evaluation-acc'):
             # 代价函数、优化函数、评价指标
             loss_cnn = tf.reduce_mean(tf.square(relu_r_cnn - y))
@@ -161,7 +146,7 @@ def cnn_mode(training_time, is_finishing):
         # 设定所有折在cnn子学习器最终的预测值
         first_sub_cnn_pred = np.zeros(dtype=np.float32, shape=([1]))
         # 将数据集划分为训练集和测试集
-        for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=True, proportion=5):
+        for train, test in data_stepone_1(p_dataset_ori=p_dataset_ori, proportion=5, is_shuffle=True):
             for epoch in range(epoch_all):
                 # 设定标志在100的倍数epoch时只输出一次结果
                 flag = 1
@@ -169,9 +154,9 @@ def cnn_mode(training_time, is_finishing):
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
                     # 所有训练数据每折各个批次的模型参数摘要汇总
                     summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True,
-                                                         learning_rate_cnn: 1e-4})
+                                                         learning_rate_cnn: Learning_RATE})
                     _ = sess.run(optimize_cnn,
-                                 feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True, learning_rate_cnn: 1e-4})
+                                 feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True, learning_rate_cnn: Learning_RATE})
                     summary_visualization.add_summary(summary_writer=summary_writer, summary=summary,
                                                       summary_information=epoch)
                     if (epoch % 100) == 0 and flag == 1:
@@ -182,9 +167,6 @@ def cnn_mode(training_time, is_finishing):
                 # 保存checkpoint节点
                 saverestore_model.save_checkpoint(saver=saver, epoch=epoch, is_recording_max_acc=False)
 
-            # 记录循环多次后该折子学习器最终预测结果
-            first_sub_cnn_pred = acc_cnn_ if first_sub_cnn_pred.any() == 0 else np.vstack(
-                (first_sub_cnn_pred, acc_cnn_))
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
         if is_finishing:
@@ -202,29 +184,42 @@ def rnn_mode(training_time, is_finishing):
     rnn计算图
     :return: None
     '''
+    Learning_RATE = 1e-4
     RNN_graph = tf.Graph()
     with RNN_graph.as_default():
         summary_visualization = Summary_Visualization()
         with tf.name_scope('placeholder'):
-            x = tf.placeholder(dtype=tf.float32, shape=(None, 20), name='xt')
+            x = tf.placeholder(dtype=tf.float32, shape=(None, 24), name='xt')
+            x_combine = tf.placeholder(dtype=tf.float32, shape=(None, 4), name='x_combine')
             y = tf.placeholder(dtype=tf.float32, shape=(None, 1), name='yt')
             learning_rate_rnn = tf.placeholder(dtype=tf.float32, name='learning_rate_rnn')
         with tf.name_scope('rnn'):
             rnn = RNN(x=x, max_time=5, num_units=128)
             rnn_outputs, _ = rnn.dynamic_rnn(style='LSTM', output_keep_prob=1.0)
             rnn_output = rnn_outputs[:, -1, :]
+            # 组合剩余4个特征
+            combine = tf.concat(values=(rnn_output, x_combine), axis=1)  # (-1, 128+4)
         with tf.name_scope('rnn-output'):
-            # rnn投影核
-            w_rnn = tf.Variable(initial_value=tf.truncated_normal(shape=(rnn_output.get_shape().as_list()[-1], 1),
-                                                                  mean=0, stddev=1), dtype=tf.float32, name='w_rnn')
-            b_rnn = tf.Variable(initial_value=tf.truncated_normal(shape=([1]), mean=0, stddev=1), dtype=tf.float32,
-                                name='b_rnn')
-            #对w和b参数写入文件摘要
-            summary_visualization.variable_summaries(var= w_rnn, name= 'w')
-            summary_visualization.variable_summaries(var= b_rnn, name= 'b')
+            # 全连接部分
+            w_1 = tf.Variable(initial_value=tf.truncated_normal(shape=(combine.get_shape().as_list()[-1], 128),
+                                                                mean=0, stddev=0.1), dtype=tf.float32, name='w_1')
+            b_1 = tf.Variable(initial_value=tf.truncated_normal(shape=([1]), mean=0, stddev=0.1), dtype=tf.float32,
+                              name='b_2')
+            w_2 = tf.Variable(initial_value=tf.truncated_normal(shape=(128, 1), mean=0, stddev=0.1, dtype=tf.float32,
+                                                                name='w_2'))
+            b_2 = tf.Variable(initial_value=tf.truncated_normal(shape=([1]), mean=0, stddev=0.1), dtype=tf.float32,
+                              name='b_2')
+            # 对w和b参数写入文件摘要
+            summary_visualization.variable_summaries(var=w_1, name='w_1')
+            summary_visualization.variable_summaries(var=b_1, name='b_1')
+            summary_visualization.variable_summaries(var=w_2, name='w_2')
+            summary_visualization.variable_summaries(var=b_2, name='b_2')
+        with tf.name_scope('cnn_output'):
             # 预测半径
-            r_rnn = tf.matmul(rnn_output, w_rnn) + b_rnn
-            relu_r_rnn = tf.nn.relu(r_rnn) #此处可以根据实验结果添加或者去掉relu，如果去掉，需要在pb保存时变换相应的保存节点
+            r_rnn = tf.matmul(combine, w_1) + b_1
+            relu_r_rnn = tf.nn.relu(r_rnn)  # 此处可以根据实验结果去掉或者添加relu，如果去掉，pb保存代码中相应也需要修改
+            r_rnn = tf.matmul(r_rnn, w_2) + b_2
+            relu_r_rnn = tf.nn.relu(r_rnn)
         with tf.name_scope('loss-optimize-evaluation-acc'):
             # 代价函数、优化函数、评价指标
             loss_rnn = tf.reduce_mean(tf.square(relu_r_rnn - y))
@@ -262,15 +257,15 @@ def rnn_mode(training_time, is_finishing):
         first_sub_rnn_pred = np.zeros(dtype=np.float32, shape=([1]))
         acc_rnn_ = 0
         # 将数据集划分为训练集和测试集
-        for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=5):
+        for train, test in data_stepone_1(p_dataset_ori=p_dataset_ori, proportion=5, is_shuffle=True):
             for epoch in range(epoch_all):
                 # 设定标志在100的倍数epoch时只输出一次结果
                 flag = 1
                 # 以一定批次读入某一折数据进行训练
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
                     # 所有训练数据每折各个批次的模型参数摘要汇总
-                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-3})
-                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: 1e-3})
+                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: Learning_RATE})
+                    _ = sess.run(optimize_rnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], learning_rate_rnn: Learning_RATE})
                     summary_visualization.add_summary(summary_writer=summary_writer, summary=summary,
                                                       summary_information=epoch)
                     if (epoch % 100) == 0 and flag == 1:
@@ -281,9 +276,6 @@ def rnn_mode(training_time, is_finishing):
                 # 保存checkpoint节点
                 saverestore_model.save_checkpoint(saver=saver, epoch=epoch, is_recording_max_acc=False)
 
-            # 记录循环多次后该折子学习器最终预测结果
-            first_sub_rnn_pred = acc_rnn_ if first_sub_rnn_pred.any() == 0 else np.vstack(
-                (first_sub_rnn_pred, acc_rnn_))
             fold += 1
         summary_visualization.summary_close(summary_writer=summary_writer)
         if is_finishing:
@@ -381,7 +373,7 @@ def fnn_mode(training_time, is_finishing):
         # 总训练轮数
         epoch_all = 10000
         # 将数据集划分为训练集和测试集
-        for train, test in data_stepone(p_dataset_ori=p_dataset_ori, padding=False, proportion=10):
+        for train, test in data_stepone_1(p_dataset_ori=p_dataset_ori, proportion=10, is_shuffle=True):
             for epoch in range(epoch_all):
                 # 设定标志在100的倍数epoch时只输出一次结果
                 flag = 1
@@ -401,7 +393,6 @@ def fnn_mode(training_time, is_finishing):
                         flag = 0
                 #保存checkpoint节点
                 saverestore_model.save_checkpoint(saver= saver, epoch= epoch, is_recording_max_acc= False)
-
 
             fold += 1
         summary_visualization.summary_close(summary_writer= summary_writer)

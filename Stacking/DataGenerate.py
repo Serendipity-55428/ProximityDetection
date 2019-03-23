@@ -10,28 +10,43 @@
 @desc:
 '''
 from Stacking.Routine_operation import SaveFile, LoadFile
+from sklearn import model_selection
 import numpy as np
 import os
 import pickle
 
 #数据生成器制作
-def data_stepone(p_dataset_ori, padding, proportion):
+def data_stepone(p_dataset_ori, proportion):
     '''
     数据集生成步骤1:划分训练/测试集数据
     :param p_dataset_ori: string, 原始数据提取绝对路径
-    :param padding: bool, 是否需要补一行0(cnn需要，rnn不需要)
     :param proportion: int, 选择10/5折交叉验证
     :return: 训练集， 测试集 ，shape=((-1, 25/20+1), (-1, 25/20+1))
     '''
     dataset_ori = LoadFile(p= p_dataset_ori)
-    if padding:
-        zeros = np.zeros(dtype= np.float32, shape= ([dataset_ori.shape[0], 5]))
-        dataset_ori = np.hstack((dataset_ori[:, :-1], zeros, dataset_ori[:, -1][:, np.newaxis]))
     batch_size = dataset_ori.shape[0] // proportion
     for i in range(0, dataset_ori.shape[0], batch_size): #取一折为测试集，剩下组合为训练集
         train = np.vstack((dataset_ori[:i, :], dataset_ori[i+batch_size:, :])) #只用后20个密度特征
         test = dataset_ori[i:i+batch_size, :]
         yield train, test
+
+def data_stepone_1(p_dataset_ori, proportion, is_shuffle):
+    '''
+    交叉验证,按比例划分训练/测试集
+    :param p_dataset_ori: string, 原始数据提取绝对路径
+    :param proportion: int, 选择10/5折交叉验证
+    :param is_shuffle: Ture/False, 选择是否随机划分
+    :return: 划分后的训练集和测试集
+    '''
+    dataset_ori = LoadFile(p=p_dataset_ori)
+    # k-fold对象,用于生成训练集和交叉验证集数据
+    kf = model_selection.KFold(n_splits=proportion, shuffle=is_shuffle, random_state=32)
+    for train_data_index, cv_data_index in kf.split(dataset_ori):
+        # 找到对应索引数据
+        train_data, cv_data = dataset_ori[train_data_index], dataset_ori[cv_data_index]
+        # print(np.isnan(train_data).any(), np.isnan(cv_data).any())
+        yield train_data, cv_data
+
 
 def data_steptwo(train_data, batch_size):
     '''
