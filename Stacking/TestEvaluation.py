@@ -11,6 +11,7 @@
 '''
 import tensorflow as tf
 import numpy as np
+from collections import Counter
 
 class Evaluation:
 
@@ -28,6 +29,35 @@ class Evaluation:
         self.__label = label
         self.__regression_pred = regression_pred
         self.__regression_label = regression_label
+
+    @staticmethod
+    def acc_regression_divided(Threshold, divided_point, ndarray_label, ndarray_logits):
+        '''
+        分段回归精确度
+        :param Threshold: 预测值与实际值之间的绝对值之差阈值
+        :param divided_point: 划分标签数据的分段点
+        :param ndarray_label: ndarray型标签向量
+        :param ndarray_logits: ndarray型预测向量
+        :return: 分段精确度散列表
+        '''
+        #预测准确值向量
+        bool_ = np.abs(ndarray_label-ndarray_logits) <= Threshold
+        is_true = np.where(bool_, 1, 0)
+        # print(np.abs(ndarray_label-ndarray_logits))
+        # print(is_true.shape)
+        #分段准确率散列初始化
+        acc_divided = {}
+        divided = ['<1', '1~10', '10~100', '>100']
+        for l in range(len(divided_point)-1):
+            per_group = np.where((ndarray_label>=divided_point[l]) & (ndarray_label<divided_point[l+1]), is_true, 0)
+            # print(per_group.shape)
+            total = np.where((ndarray_label>=divided_point[l]) & (ndarray_label<divided_point[l+1]), 1, 0)
+            acc_per = np.sum(per_group) / np.sum(total)
+            # print(np.sum(per_group), np.sum(total))
+            acc_divided[divided.pop(0)] = acc_per
+
+        return acc_divided
+
 
     def acc_classification(self):
         '''
@@ -51,7 +81,7 @@ class Evaluation:
         :return: 精确率，返回计算图节点op，结果需要放在计算图中运行转为ndarray
         '''
         #残差布尔向量
-        is_true = tf.abs(self.__regression_pred - self.__regression_label) < Threshold
+        is_true = tf.abs(self.__regression_pred - self.__regression_label) <= Threshold
         is_true_cast = tf.cast(is_true, tf.float32)
         acc_rate_regression = tf.reduce_mean(is_true_cast)
         return acc_rate_regression

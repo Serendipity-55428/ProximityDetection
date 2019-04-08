@@ -15,6 +15,7 @@ from Stacking.DataGenerate import data_stepone, data_stepone_1, data_steptwo, se
 from Stacking.Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model, SaveRestore_model
 import tensorflow as tf
 import numpy as np
+from collections import Counter
 import os
 import pickle
 
@@ -29,7 +30,7 @@ def cnn_mode(training_time, is_finishing):
     with CNN_graph.as_default():
         summary_visualization = Summary_Visualization()
         with tf.name_scope('placeholder'):
-            x = tf.placeholder(dtype=tf.float32, shape=(None, 24), name='xt')
+            x = tf.placeholder(dtype=tf.float32, shape=(None, 20), name='xt')
             x_combine = tf.placeholder(dtype=tf.float32, shape=(None, 4), name='x_combine')
             y = tf.placeholder(dtype=tf.float32, shape=(None, 1), name='yt')
             bn_istraining = tf.placeholder(dtype=tf.bool, name='bn_istraining')
@@ -38,11 +39,11 @@ def cnn_mode(training_time, is_finishing):
         # 核尺寸
         kernel_size = {
             'w1_edge': 3,
-            'w1_deep': 64,
+            'w1_deep': 128,
             'w2_edge': 3,
-            'w2_deep': 64,
+            'w2_deep': 128,
             'w3_edge': 2,
-            'w3_deep': 128,
+            'w3_deep': 256,
 
         }
         with tf.name_scope('w'):
@@ -61,7 +62,6 @@ def cnn_mode(training_time, is_finishing):
             #对所有卷积核w和b写入文件摘要
             for i in (i for i in range(3)):
                 summary_visualization.variable_summaries(var= kernel_para['w%s_size' % (i+1)], name= 'w%s' % (i+1))
-
         # 卷积层(数据特征维度：20->5*5)
         with tf.name_scope('cnn'):
             cnn_1 = CNN(x=x, w_conv=kernel_para['w1_size'], stride_conv=1, stride_pool=2)
@@ -79,8 +79,8 @@ def cnn_mode(training_time, is_finishing):
             #pool
             pool1 = cnn_2.pooling(pool_fun=tf.nn.max_pool, input=bn2)
             # 3
-            cnn_3 = CNN(x=bn2, w_conv=kernel_para['w3_size'], stride_conv=1, stride_pool=2)
-            layer_3 = cnn_3.convolution(input=bn2)
+            cnn_3 = CNN(x=pool1, w_conv=kernel_para['w3_size'], stride_conv=1, stride_pool=2)
+            layer_3 = cnn_3.convolution(input=pool1)
             relu3 = tf.nn.relu(layer_3)
             bn3 = cnn_3.batch_normoalization(input=relu3, is_training=bn_istraining) #(-1, 2, 3, 128)
             # pool
@@ -108,7 +108,7 @@ def cnn_mode(training_time, is_finishing):
             # 预测半径
             r_cnn = tf.matmul(combine, w_1) + b_1
             relu_r_cnn = tf.nn.relu(r_cnn) #此处可以根据实验结果去掉或者添加relu，如果去掉，pb保存代码中相应也需要修改
-            r_cnn = tf.matmul(r_cnn, w_2) + b_2
+            r_cnn = tf.matmul(relu_r_cnn, w_2) + b_2
             relu_r_cnn = tf.nn.relu(r_cnn)
         with tf.name_scope('loss-optimize-evaluation-acc'):
             # 代价函数、优化函数、评价指标
@@ -137,14 +137,14 @@ def cnn_mode(training_time, is_finishing):
         # 摘要文件
         summary_writer = summary_visualization.summary_file(p='logs/', graph=sess.graph)
         # 导入数据
-        p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data.pickle'
-        dataset_ori = LoadFile(p=p_dataset_ori)
+        p_dataset_ori = r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle'
+        # dataset_ori = LoadFile(p=p_dataset_ori)
         # 记录折数
         fold = 0
         # 总训练轮数
-        epoch_all = 1
+        epoch_all = 10000
         # 设定所有折在cnn子学习器最终的预测值
-        first_sub_cnn_pred = np.zeros(dtype=np.float32, shape=([1]))
+        # first_sub_cnn_pred = np.zeros(dtype=np.float32, shape=([1]))
         # 将数据集划分为训练集和测试集
         for train, test in data_stepone_1(p_dataset_ori=p_dataset_ori, proportion=5, is_shuffle=True):
             for epoch in range(epoch_all):
@@ -152,17 +152,31 @@ def cnn_mode(training_time, is_finishing):
                 flag = 1
                 # 以一定批次读入某一折数据进行训练
                 for batch_x, batch_y in data_steptwo(train_data=train, batch_size=500):
+                    # print(batch_x.shape, batch_y.shape)
                     # 所有训练数据每折各个批次的模型参数摘要汇总
-                    summary = sess.run(merge, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True,
+                    summary = sess.run(merge, feed_dict={x: batch_x[:, 4:], x_combine: batch_x[:, :4],
+                                                         y: batch_y[:, np.newaxis], bn_istraining: True,
                                                          learning_rate_cnn: Learning_RATE})
-                    _ = sess.run(optimize_cnn,
-                                 feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True, learning_rate_cnn: Learning_RATE})
+                    _ = sess.run(optimize_cnn,feed_dict={x: batch_x[:, 4:], x_combine: batch_x[:, :4],
+                                                         y: batch_y[:, np.newaxis], bn_istraining: True,
+                                                         learning_rate_cnn: Learning_RATE})
                     summary_visualization.add_summary(summary_writer=summary_writer, summary=summary,
                                                       summary_information=epoch)
                     if (epoch % 100) == 0 and flag == 1:
-                        loss_cnn_ = sess.run(loss_cnn, feed_dict={x: batch_x, y: batch_y[:, np.newaxis], bn_istraining: True})
-                        acc_cnn_ = sess.run(acc_cnn, feed_dict={x: test[:, :-1], y: test[:, -1][:, np.newaxis], bn_istraining: False})
+                        loss_cnn_ = sess.run(loss_cnn, feed_dict={x: batch_x[:, 4:], x_combine: batch_x[:, :4],
+                                                                  y: batch_y[:, np.newaxis], bn_istraining: True})
+                        acc_cnn_ = sess.run(acc_cnn, feed_dict={x: test[:, 4:-1], x_combine: test[:, :4],
+                                                                y: test[:, -1][:, np.newaxis], bn_istraining: False})
+                        prediction = sess.run(relu_r_cnn, feed_dict={x: test[:, 4:-1], x_combine: test[:, :4],
+                                                                y: test[:, -1][:, np.newaxis], bn_istraining: False})
+                        # print(Counter(test[:, -1]))
+                        # acc_divided = evaluation_cnn.acc_regression_divided(Threshold=0.11,
+                        #                                                     divided_point=[0, 1, 10, 20, 100, 200, 300],
+                        #                                                     ndarray_logits=prediction,
+                        #                                                     ndarray_label=test[:, -1][:, np.newaxis])
                         print('第%s轮后训练集损失为: %s, 第 %s 折预测准确率为: %s' % (epoch, loss_cnn_, fold, acc_cnn_))
+                        # print('各段准确率分别为: %s' % acc_divided)
+
                         flag = 0
                 # 保存checkpoint节点
                 saverestore_model.save_checkpoint(saver=saver, epoch=epoch, is_recording_max_acc=False)
@@ -175,8 +189,8 @@ def cnn_mode(training_time, is_finishing):
                                          usefulplaceholder_count=2)
             savemodel.save_pb()
 
-    p_cnn = r'F:\ProximityDetection\Stacking\cnn_pred.pickle'
-    SaveFile(data=first_sub_cnn_pred, savepickle_p=p_cnn)
+    # p_cnn = r'F:\ProximityDetection\Stacking\cnn_pred.pickle'
+    # SaveFile(data=first_sub_cnn_pred, savepickle_p=p_cnn)
 
 #rnn模块################################################################
 def rnn_mode(training_time, is_finishing):
@@ -189,7 +203,7 @@ def rnn_mode(training_time, is_finishing):
     with RNN_graph.as_default():
         summary_visualization = Summary_Visualization()
         with tf.name_scope('placeholder'):
-            x = tf.placeholder(dtype=tf.float32, shape=(None, 24), name='xt')
+            x = tf.placeholder(dtype=tf.float32, shape=(None, 20), name='xt')
             x_combine = tf.placeholder(dtype=tf.float32, shape=(None, 4), name='x_combine')
             y = tf.placeholder(dtype=tf.float32, shape=(None, 1), name='yt')
             learning_rate_rnn = tf.placeholder(dtype=tf.float32, name='learning_rate_rnn')
@@ -404,6 +418,6 @@ def fnn_mode(training_time, is_finishing):
 
 
 if __name__ == '__main__':
-    # cnn_mode(training_time= 0, is_finishing= False)
+    cnn_mode(training_time= 1, is_finishing= False)
     # rnn_mode(training_time= 0, is_finishing= False)
-    fnn_mode(training_time= 0, is_finishing= False)
+    # fnn_mode(training_time= 0, is_finishing= False)

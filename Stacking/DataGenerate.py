@@ -71,6 +71,32 @@ def second_dataset(dataset_ori, pred):
     sub_dataset = np.hstack((dataset_ori[:, :4], pred, dataset_ori[:, -1][:, np.newaxis]))
     return sub_dataset
 
+# 类别划分通用函数
+#     def transform(label):
+#         '''
+#         将回归标签转换为类别标签
+#         :param label: 待转换回归标签
+#         :return: 类别标签
+#         '''
+#         def divide(x):
+#             divide_point = [1, 10, 30, 100, 200]
+#             divide_label = [i for i in range(6)]
+#             position = bisect(a=divide_point, x=x)
+#             return divide_label[position]
+#         divide_ufunc = np.frompyfunc(divide, 1, 1)
+#         return divide_ufunc(label)
+#
+#     #提取特征归一化后的fft数据（带标签）
+#     PNY_fft_norm = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm.pickle')
+#     #提取标签
+#     fft_label = PNY_fft_norm[:, -1]
+#     #生成类别标签
+#     fft_class = transform(fft_label)
+#     #合成新数据
+#     PNY_fft_norm_c = np.hstack((PNY_fft_norm[:, :-1], fft_class[:, np.newaxis]))
+#     # SaveFile(data=PNY_fft_norm_c, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm_c.pickle')
+#     print(Counter(fft_class))
+
 if __name__ == '__main__':
     #制作数据总数10000,5折
     rng = np.random.RandomState(0)
@@ -83,7 +109,7 @@ if __name__ == '__main__':
     p_dataset_ori = r'F:\ProximityDetection\Stacking\test_data_2.pickle'
     dataset_ori = LoadFile(p=p_dataset_ori)
     #step1
-    for train, test in data_stepone(p_dataset_ori= p_dataset_ori, padding= False, proportion= 5):
+    for train, test in data_stepone(p_dataset_ori= p_dataset_ori, proportion= 5):
         print(train.shape)
         print(test.shape)
         # for feature, label in data_steptwo(train_data= train, batch_size= 500):

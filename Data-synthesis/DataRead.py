@@ -15,6 +15,7 @@ import numpy as np
 import xlwt
 import pandas as pd
 from Stacking.Routine_operation import LoadFile
+from collections import Counter
 
 def GeneratorData(type, filename_prefix):
     '''
@@ -110,6 +111,16 @@ def SaveFile(data, savepickle_p):
         with open(savepickle_p, 'wb') as file:
             pickle.dump(data, file)
 
+def checkclassifier(vector):
+    '''
+    对输入数据向量进行各个数量类别统计
+    :param vector: 待统计数据向量
+    :return: None
+    '''
+    statistic = Counter(vector)
+    for key, value in statistic.items():
+        print('%s: %s' % (key, value))
+    print('\n')
 
 if __name__ == '__main__':
     rng = np.random.RandomState(2)
@@ -152,10 +163,13 @@ if __name__ == '__main__':
     data_no_noise = LoadFile(r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_no_noise.pickle')
     # print(data_noise.shape, data_no_noise.shape)
     #制作数量为10000的数据集，无噪声数据集数量不够可以用少量噪声数据集进行填充
-    # data_train = np.vstack((data_no_noise, data_noise[:(10000-data_no_noise.shape[0]), :]))
-    # rng.shuffle(data_train)
+    data_train = np.vstack((data_no_noise, data_noise[:(10000-data_no_noise.shape[0]), :]))
+    rng.shuffle(data_train)
     # SaveFile(data=data_train, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
     # print(data_train.shape)
+    # statistic = Counter(data_train[:, -1])
+    # for key, value in statistic.items():
+    #     print('%s: %s' % (key, value))
     #制作平均密度序列的fft变换膜值序列
     # data_fft_noise = np.hstack((np.abs(np.fft.fft(a=data_noise[:, 4:-1], n=100, axis=1)),data_noise[:, :4], data_noise[:, -1][:, np.newaxis]))
     # data_fft_no_noise = np.hstack((np.abs(np.fft.fft(a=data_no_noise[:, 4:-1], n=100, axis=1)),data_no_noise[:, :4], data_no_noise[:, -1][:, np.newaxis]))
@@ -165,17 +179,20 @@ if __name__ == '__main__':
     #制作数量为10000的fft变换取模后的数据集
     # data_fft = np.vstack((data_fft_no_noise, data_fft_noise[:(10000-data_fft_no_noise.shape[0]), :]))
     # rng.shuffle(data_fft)
-    # SaveFile(data=data_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
+    # # SaveFile(data=data_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
     # print(data_fft.shape)
 
     #对原始数据和经过傅里叶变换后的数据进行列归一化
-    # data_PNY = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
-    # data_PNY = (data_PNY - np.min(data_PNY, axis=0)) / (np.max(data_PNY, axis=0) - np.min(data_PNY, axis=0))
-    # SaveFile(data=data_PNY, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle')
+    data_PNY = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
+    data_PNY = (data_PNY - np.min(data_PNY, axis=0)) / (np.max(data_PNY, axis=0) - np.min(data_PNY, axis=0))
+    checkclassifier(data_PNY[:, -1])
+    SaveFile(data=data_PNY, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle')
+
 
     #对经过fft变换取模后的数据进行列归一化
     data_PNY_fft = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
     data_PNY_fft = (data_PNY_fft - np.min(data_PNY_fft, axis=0)) / (np.max(data_PNY_fft, axis=0) - np.min(data_PNY_fft, axis=0))
+    checkclassifier(data_PNY_fft[:, -1])
     SaveFile(data=data_PNY_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm.pickle')
 
 
