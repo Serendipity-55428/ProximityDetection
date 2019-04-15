@@ -5,16 +5,18 @@
 @license: (C) Copyright 2018-2021, Node Supply Chain Manager Corporation Limited.
 @contact: 1243049371@qq.com
 @software:PyCharm
-@file: cnn+rnn+fnn_ori
-@time: 2019/3/23 9:14
+@file: classifier2
+@time: 2019/4/11 16:26
 @desc:
 '''
+from bisect import bisect
 from Stacking.AllNet import CNN, RNN, FNN
 from Stacking.TestEvaluation import Evaluation
 from Stacking.DataGenerate import data_stepone, data_stepone_1, data_steptwo, second_dataset
 from Stacking.Routine_operation import SaveFile, LoadFile, Summary_Visualization, SaveImport_model, SaveRestore_model
 import tensorflow as tf
 import numpy as np
+from collections import Counter
 
 def cnn(x, is_training, summary_visualization):
     '''
@@ -26,12 +28,12 @@ def cnn(x, is_training, summary_visualization):
     '''
     # 核尺寸
     kernel_size = {
-        'w1_edge': 3,
-        'w1_deep': 32,
+        'w1_edge': 5,
+        'w1_deep': 96,
         'w2_edge': 3,
-        'w2_deep': 64,
+        'w2_deep': 256,
         'w3_edge': 2,
-        'w3_deep': 128,
+        'w3_deep': 384,
     }
     with tf.name_scope('w'):
         # 核张量
@@ -54,27 +56,28 @@ def cnn(x, is_training, summary_visualization):
     with tf.name_scope('cnn'):
         cnn_1 = CNN(x=x, w_conv=kernel_para['w1_size'], stride_conv=1, stride_pool=2)
         # 将向量x转换为5*5方形张量
-        x_reshape = CNN.reshape(f_vector=x, new_shape=(-1, 4, 5, 1))
+        x_reshape = CNN.reshape(f_vector=x, new_shape=(-1, 10, 10, 1))
         # 1
         layer_1 = cnn_1.convolution(input=x_reshape)
         relu1 = tf.nn.relu(layer_1)
         bn1 = cnn_1.batch_normoalization(input=relu1, is_training=is_training)
-        pool1 = cnn_1.pooling(pool_fun=tf.nn.max_pool, input=bn1) #(-1, 2, 3, 32)
+        pool1 = cnn_1.pooling(pool_fun=tf.nn.max_pool, input=bn1) #(-1, 5, 5, 96)
         # 2
         cnn_2 = CNN(x=pool1, w_conv=kernel_para['w2_size'], stride_conv=1, stride_pool=2)
         layer_2 = cnn_2.convolution(input=bn1)
         relu2 = tf.nn.relu(layer_2)
-        bn2 = cnn_2.batch_normoalization(input=relu2, is_training=is_training) #(-1, 2, 3, 64)
+        bn2 = cnn_2.batch_normoalization(input=relu2, is_training=is_training)
+        pool2 = cnn_2.pooling(pool_fun=tf.nn.max_pool, input=bn2) #(-1, 3, 3, 256)
         # 3
         cnn_3 = CNN(x=bn2, w_conv=kernel_para['w3_size'], stride_conv=1, stride_pool=2)
         layer_3 = cnn_3.convolution(input=bn2)
         relu3 = tf.nn.relu(layer_3)
         bn3 = cnn_3.batch_normoalization(input=relu3, is_training=is_training)
-        pool3 = cnn_3.pooling(pool_fun=tf.nn.max_pool, input=bn3) #(-1, 1, 2, 128)
+        pool3 = cnn_3.pooling(pool_fun=tf.nn.max_pool, input=bn3) #(-1, 2, 2, 384)
         # flat
         pool3_x, pool3_y, pool3_z = pool3.get_shape().as_list()[1:]
         cnn_output = CNN.reshape(f_vector=pool3, new_shape=(-1, pool3_x * pool3_y * pool3_z))
-        # print(cnn_output.shape)
+        print(cnn_output.shape)
     return cnn_output
 
 def rnn(x, summary_visualization):
@@ -85,11 +88,11 @@ def rnn(x, summary_visualization):
     :return: rnn网络输出部分
     '''
     with tf.name_scope('rnn'):
-        rnn = RNN(x=x, max_time=16, num_units=128)
+        rnn = RNN(x=x, max_time=16, num_units=192)
         rnn_outputs, _ = rnn.dynamic_multirnn(style='LSTM', layers_num=2, output_keep_prob=0.8, is_reshape='yes')
         rnn_output = rnn_outputs[:, -1, :]
 
-    return rnn_output #(-1, 128)
+    return rnn_output #(-1, 192)
 
 def fnn(x, summary_visualization):
     '''
@@ -99,12 +102,12 @@ def fnn(x, summary_visualization):
     :return: dnn网络输出部分
     '''
     h_size = {
-        'w1_insize': 132,
+        'w1_insize': 192+4,
         'w1_outsize': 200,
         'w2_insize': 200,
         'w2_outsize': 100,
         'w3_insize': 100,
-        'w3_outsize': 1
+        'w3_outsize': 4
     }
 
     with tf.name_scope('w-b'):
@@ -140,9 +143,9 @@ def train(training_time, is_finishing):
     :param is_finishing: 标记是否已完成训练
     :return: None
     '''
-    FEATURE_DIM = 24
-    LABEL_DIM = 1
-    LEARNING_RATE = 1e-2
+    FEATURE_DIM = 104
+    LABEL_DIM = 4
+    LEARNING_RATE = 1e-3
     NN_graph = tf.Graph()
     with NN_graph.as_default():
         summary_visualization = Summary_Visualization()
@@ -159,14 +162,14 @@ def train(training_time, is_finishing):
             print(x_in.shape)
             fnn_op = fnn(x=x_in, summary_visualization=summary_visualization)
         with tf.name_scope('loss-potimize-evaluation-acc'):
-            # 代价函数、优化函数、评价指标
-            loss_fnn = tf.reduce_mean(tf.square(fnn_op - y))
+            # 定义softmax交叉熵和损失函数以及精确度函数
+            loss_fnn = -tf.reduce_mean(y * tf.log(fnn_op), name='loss')
             #添加摘要loss
             summary_visualization.scalar_summaries(arg= {'loss': loss_fnn})
             optimize_fnn = tf.train.GradientDescentOptimizer(learning_rate=learning_rate_fnn).minimize(loss_fnn)
-            evaluation_fnn = Evaluation(one_hot=False, logit=None, label=None, regression_label=y,
-                                        regression_pred=fnn_op)
-            acc_fnn = evaluation_fnn.acc_regression(Threshold=0.1)  # 评价指标中的阈值可以修改
+            evaluation_fnn = Evaluation(one_hot= True, logit= tf.nn.softmax(fnn_op), label= y,
+                                        regression_pred= None, regression_label= None)
+            acc_fnn = evaluation_fnn.acc_classification()
             #添加摘要acc
             # summary_visualization.scalar_summaries(arg= {'acc': acc_fnn})
         with tf.name_scope('etc'):
@@ -187,35 +190,35 @@ def train(training_time, is_finishing):
         #摘要文件
         summary_writer = summary_visualization.summary_file(p= 'logs/', graph= sess.graph)
         # 导入数据
-        p_dataset_ori = r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm.pickle'
+        p_dataset_ori = r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_cl.pickle'
         # 记录折数
         fold = 0
         # 总训练轮数
         epoch_all = 10000
         # 将数据集划分为训练集和测试集
-        for train, test in data_stepone_1(p_dataset_ori=p_dataset_ori, proportion=10, is_shuffle=True):
+        for train, test in data_stepone_1(p_dataset_ori=p_dataset_ori, proportion=4, is_shuffle=True):
             # print(train.shape, test.shape)
             for epoch in range(epoch_all):
                 # 设定标志在100的倍数epoch时只输出一次结果
                 flag = 1
                 # 以一定批次读入某一折数据进行训练
-                for batch_x, batch_y in data_steptwo(train_data=train, batch_size=1000):
+                for batch_x, batch_y in data_steptwo(train_data=train, batch_size=5*190):
                     # print(batch_x.shape, batch_y.shape)
                     #所有训练数据每折各个批次的模型参数摘要汇总
-                    summary = sess.run(merge, feed_dict= {x: batch_x[:, 4:], x_add: batch_x[:, :4],
-                                                          y: batch_y[:, np.newaxis], learning_rate_fnn: LEARNING_RATE,
+                    summary = sess.run(merge, feed_dict= {x: batch_x[:, :100], x_add: batch_x[:, 100:],
+                                                          y: batch_y, learning_rate_fnn: LEARNING_RATE,
                                                           is_training: True})
-                    _ = sess.run(optimize_fnn, feed_dict={x: batch_x[:, 4:], x_add: batch_x[:, :4],
-                                                          y: batch_y[:, np.newaxis], learning_rate_fnn: LEARNING_RATE,
+                    _ = sess.run(optimize_fnn, feed_dict={x: batch_x[:, :100], x_add: batch_x[:, 100:],
+                                                          y: batch_y, learning_rate_fnn: LEARNING_RATE,
                                                           is_training: True})
                     summary_visualization.add_summary(summary_writer= summary_writer, summary= summary,
                                                       summary_information= epoch)
                     if (epoch % 100) == 0 and flag == 1:
-                        loss_fnn_ = sess.run(loss_fnn, feed_dict={x: batch_x[:, 4:], x_add: batch_x[:, :4],
-                                                                  y: batch_y[:, np.newaxis],
+                        loss_fnn_ = sess.run(loss_fnn, feed_dict={x: batch_x[:, :100], x_add: batch_x[:, 100:],
+                                                                  y: batch_y,
                                                                   is_training: False})
-                        acc_fnn_ = sess.run(acc_fnn, feed_dict={x: test[:, 4:-1], x_add: test[:, :4],
-                                                                y: test[:, -1][:, np.newaxis],
+                        acc_fnn_ = sess.run(acc_fnn, feed_dict={x: test[:, :100], x_add: test[:, 100:-4],
+                                                                y: test[:, -4:],
                                                                 is_training: False})
                         # acc_fnn_train = sess.run(acc_fnn, feed_dict={x:train[:, :100], x_add:train[:, 100:-1],
                         #                                              y:train[:, -1][:, np.newaxis]})
@@ -233,6 +236,12 @@ def train(training_time, is_finishing):
                                          usefulplaceholder_count=1)
             savemodel.save_pb()
 
+        # 定义Evaluation类对象
+        # evalulation_2 = Evaluation(one_hot=True, logit=op_logit, label=y, regression_pred=None, regression_label=None)
+        # PRF_dict_ = evalulation_2.PRF_tables(mode_num=6)
+        # # _, PRF_dict_ = evalulation_2.session_PRF(acc= None, prf_dict= PRF_dict)
+        # print(PRF_dict_)
+
 
 if __name__ == '__main__':
-    train(training_time=0, is_finishing=False)
+    train(training_time=1, is_finishing=False)

@@ -186,14 +186,14 @@ if __name__ == '__main__':
     data_PNY = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_train.pickle')
     data_PNY = (data_PNY - np.min(data_PNY, axis=0)) / (np.max(data_PNY, axis=0) - np.min(data_PNY, axis=0))
     checkclassifier(data_PNY[:, -1])
-    SaveFile(data=data_PNY, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle')
+    # SaveFile(data=data_PNY, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_norm.pickle')
 
 
     #对经过fft变换取模后的数据进行列归一化
-    data_PNY_fft = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
-    data_PNY_fft = (data_PNY_fft - np.min(data_PNY_fft, axis=0)) / (np.max(data_PNY_fft, axis=0) - np.min(data_PNY_fft, axis=0))
-    checkclassifier(data_PNY_fft[:, -1])
-    SaveFile(data=data_PNY_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm.pickle')
+    # data_PNY_fft = LoadFile(p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_data_fft.pickle')
+    # data_PNY_fft = (data_PNY_fft - np.min(data_PNY_fft, axis=0)) / (np.max(data_PNY_fft, axis=0) - np.min(data_PNY_fft, axis=0))
+    # checkclassifier(data_PNY_fft[:, -1])
+    # SaveFile(data=data_PNY_fft, savepickle_p=r'F:\ProximityDetection\Stacking\dataset_PNY\PNY_fft_norm.pickle')
 
 
 

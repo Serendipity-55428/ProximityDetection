@@ -56,10 +56,14 @@ def data_steptwo(train_data, batch_size):
     :return: 训练数据批次特征、标签
     '''
     for i in range(0, train_data.shape[0], batch_size):
-        feature = train_data[i:i+batch_size, :-1]
+        feature = train_data[i:i+batch_size, :-4]
         # feature = (feature - np.min(feature, axis=0)) / (np.max(feature, axis=0) - np.min(feature, axis=0))
         # print(feature_norm.max())
-        yield feature, train_data[i:i+batch_size, -1]
+        if train_data[:, -4:].shape[-1] == 1:
+            label = train_data[i:i+batch_size, -4:].ravel()
+        else:
+            label = train_data[i:i+batch_size, -4:]
+        yield feature, label
 
 def second_dataset(dataset_ori, pred):
     '''
